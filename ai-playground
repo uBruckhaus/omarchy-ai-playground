@@ -1,0 +1,8 @@
+#!/bin/sh
+# Start AI Playground (or bring its window to the front): ai-playground [--agent <command>] [--test <tab>]
+# Tabs: chess, speed, duel, vision, local. Started as an app of its own under uwsm where there is one.
+here=$(dirname "$(readlink -f "$0")")
+if command -v uwsm >/dev/null 2>&1; then
+  exec uwsm app -- python3 "$here/ai_playground.py" "$@"
+fi
+exec python3 "$here/ai_playground.py" "$@"
