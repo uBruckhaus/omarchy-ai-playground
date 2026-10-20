@@ -2414,5 +2414,8 @@
  "\u00041 link of a local LLM is pointed at the new place.": [
   "1 dowiązanie lokalnego LLM wskaże nowe miejsce.",
   "Dowiązania lokalnych LLM ({0}) wskażą nowe miejsce."
- ]
+ ],
+ "Reading the moves needs an agent that sees pictures and runs without tools: Claude Code or Pi, signed in or connected to a local vision model.": "Do odczytania ruchów potrzebny jest agent, który widzi obrazy i działa bez narzędzi: Claude Code lub Pi, zalogowany albo połączony z lokalnym modelem wizyjnym.",
+ "Left out: {0}. It can read files on this computer, and a video's text or pictures could ask it to.": "Pominięty: {0}. Może czytać pliki na tym komputerze, a tekst lub obrazy filmu mogłyby go o to poprosić.",
+ "Only an agent without tools may read a video.": "Tylko agent bez narzędzi może odczytać film."
 }

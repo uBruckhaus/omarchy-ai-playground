@@ -62,6 +62,18 @@ def takes_images(command: str) -> bool:
     return command in IMAGE_WAYS and can_ask(command)
 
 
+# Agents whose ask command has no tools at all: no shell, no file reads, no MCP servers (their
+# adapters' [ask] argv: claude --tools "" --strict-mcp-config, hermes -t todo, pi --no-tools, which
+# also turns off extension tools). Only these are given what comes from the web (a video's
+# description, captions and frames): words planted there cannot make them read local files. Codex's
+# read-only sandbox still lets it read any file, so it is never one of them.
+NO_TOOLS = frozenset({"claude", "hermes", "pi"})
+
+
+def reads_untrusted(command: str) -> bool:
+    return command in NO_TOOLS and can_ask(command)
+
+
 def _media_type(path: Path) -> str:
     return IMAGE_TYPES.get(path.suffix.lower(), "")
 

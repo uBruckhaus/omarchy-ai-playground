@@ -213,6 +213,48 @@ class LocalHoldTest(unittest.TestCase):
             self.assertEqual(local_hold.start("llamacpp"), "other")
 
 
+class VideoReaderTest(unittest.TestCase):
+    """A video's description, captions and frames come from the web: only agents without tools read them."""
+
+    @classmethod
+    def setUpClass(cls):
+        import gi
+        gi.require_version("Gtk", "4.0")
+        gi.require_version("Gdk", "4.0")
+
+    def test_only_tool_less_agents_read_web_content(self):
+        self.assertTrue(agent_run.reads_untrusted("claude"))
+        self.assertTrue(agent_run.reads_untrusted("pi"))
+        self.assertTrue(agent_run.reads_untrusted("hermes"))
+        self.assertFalse(agent_run.reads_untrusted("codex"))         # its read-only sandbox still reads files
+        self.assertFalse(agent_run.reads_untrusted("opencode"))
+
+    def test_their_ask_commands_really_have_no_tools(self):
+        import chess_agent
+        argv = {c: " ".join(chess_agent.ask_argv(c)) for c in agent_run.NO_TOOLS}
+        self.assertIn('--tools  --strict-mcp-config', argv["claude"])
+        self.assertIn("--no-tools", argv["pi"])
+        self.assertIn("-t todo", argv["hermes"])
+
+    def test_codex_never_gets_a_videos_text(self):
+        import chess_import
+        from types import SimpleNamespace
+        with mock.patch.object(chess_import.chess_video, "video_info", side_effect=AssertionError("fetched")), \
+                mock.patch.object(chess_import.agent_run, "ask", side_effect=AssertionError("asked")):
+            found = chess_import.ChessImport.chess_read_text(None, "https://www.youtube.com/watch?v=x",
+                                                             SimpleNamespace(command="codex", name="Codex"),
+                                                             lambda _t: None)
+        self.assertIsNone(found)
+
+    def test_the_readers_leave_codex_out(self):
+        import chess_import
+        from types import SimpleNamespace
+        host = SimpleNamespace(ready_agents=[SimpleNamespace(command=c, name=c) for c in ("claude", "codex", "pi", "hermes")])
+        host.video_readers = lambda: chess_import.ChessImport.video_readers(host)
+        self.assertEqual([a.command for a in chess_import.ChessImport.video_readers(host)], ["claude", "pi", "hermes"])
+        self.assertEqual([a.command for a in chess_import.ChessImport.chess_readers(host)], ["claude", "pi"])
+
+
 class FrameCheckTest(unittest.TestCase):
     """frame_check: an agent on a local model is set up for frames where it can be, else told why."""
 

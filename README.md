@@ -78,8 +78,10 @@ others take it only as a command-line argument, which other accounts on the comp
 the agent runs. Every program is started as an argv list, never through a shell. The agents send the
 question to their own providers as they always do; AI Playground adds nothing.
 
-Reading a game from a video's description sends that (web) text to the agent as part of the
-question. The agents run without tools; Codex's read-only sandbox has no network and no writes.
+A video's description, captions and frames come from the web, so they go only to an agent that runs
+with no tools at all (Claude Code with `--tools "" --strict-mcp-config`, Pi with `--no-tools`, Hermes
+with only its task list): words planted in a video cannot make it read your files. Codex is left out
+of reading videos, because its read-only sandbox still lets it read files.
 
 ## Privacy and capabilities
 

@@ -311,8 +311,13 @@ class ChessImport:
         dialog.open(self.window, None, picked)
 
     def chess_readers(self) -> list:
-        """The agents that take pictures (one on a local model is checked when it is chosen: frame_check)."""
-        return [a for a in self.ready_agents if agent_run.takes_images(a.command)]
+        """The agents that take pictures (one on a local model is checked when it is chosen: frame_check)
+        and have no tools (agent_run.NO_TOOLS: a video's text and frames come from the web)."""
+        return [a for a in self.video_readers() if agent_run.takes_images(a.command)]
+
+    def video_readers(self) -> list:
+        """The agents a video's description, captions or frames may go to: only those without tools."""
+        return [a for a in self.ready_agents if agent_run.reads_untrusted(a.command)]
 
     def chess_import_ask(self, path: str = "", url: str = "") -> bool:
         """The import dialog: which agent reads, how often a frame is taken, what it costs."""
@@ -330,14 +335,18 @@ class ChessImport:
             self.toast(_("A YouTube link needs yt-dlp; install it, or drop the video file."))
             return False
         seeing = self.chess_readers()                  # agents that take pictures: the frames
-        everyone = list(self.ready_agents)             # any agent set up: the fast way (text only)
+        everyone = self.video_readers()                # any agent without tools: the fast way (text only)
         if not (everyone if url else seeing):
-            blind = [a.name for a in self.ready_agents]
+            blind = [a.name for a in self.ready_agents if agent_run.reads_untrusted(a.command)]
+            tools = [a.name for a in self.ready_agents if not agent_run.reads_untrusted(a.command)]
             self.chess_notice(_("No agent here can read a video"),
-                              _("Reading the moves needs an agent that sees pictures: Claude Code, Codex or Pi, "
-                                "signed in or connected to a local vision model.") + "\n\n"
-                              + (_("Set up here: {0}. They cannot see pictures.").format(", ".join(blind)) if blind
-                                 else _("No agent is set up here yet.")) + "\n\n"
+                              _("Reading the moves needs an agent that sees pictures and runs without tools: "
+                                "Claude Code or Pi, signed in or connected to a local vision model.") + "\n\n"
+                              + (_("Set up here: {0}. They cannot see pictures.").format(", ".join(blind)) + "\n\n"
+                                 if blind else "")
+                              + (_("Left out: {0}. It can read files on this computer, and a video's text or pictures "
+                                   "could ask it to.").format(", ".join(tools)) + "\n\n" if tools else "")
+                              + (_("No agent is set up here yet.") + "\n\n" if not self.ready_agents else "")
                               + _("Set up one of them (AI Agents Map can install it and sign you in), then drop the "
                                   "video again."))
             return False
@@ -580,6 +589,8 @@ class ChessImport:
             return ""
 
         def work():
+            if not all(agent_run.reads_untrusted(a.command) for a in (reader, watcher) if a is not None):
+                return GLib.idle_add(done, None, _("Only an agent without tools may read a video."))
             folder = tempfile.mkdtemp(prefix="ai-playground-video-")       # private (0700)
             try:
                 video, name = path, title
@@ -687,6 +698,8 @@ class ChessImport:
     def chess_read_text(self, url: str, reader, show):
         """The fast way (blocking): (reading, title, how) from the video's description, else from its
         description and captions through one question to the agent; None when they give no game."""
+        if not agent_run.reads_untrusted(reader.command):          # web text only to an agent without tools
+            return None
         show(_("Reading the video's description…"))
         info = chess_video.video_info(url)
         if not info:
