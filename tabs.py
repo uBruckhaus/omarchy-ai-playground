@@ -509,11 +509,9 @@ class LocalTab(GpuGuard):
         row = Gtk.Box(spacing=8)
         row.add_css_class("am-chess-controls")
         self.local_model = Gtk.DropDown.new_from_strings([_("Looking…")])
-        self.local_model.set_sensitive(False)
         row.append(self.local_model)
         row.append(Gtk.Label(label=_("compared with")))
         self.local_model_b = Gtk.DropDown.new_from_strings([_("no second model")])
-        self.local_model_b.set_sensitive(False)
         self.local_model_b.set_tooltip_text(_("A second model gets the same question; if both may not fit in GPU "
                                               "memory together, you are asked first"))
         row.append(self.local_model_b)
@@ -532,8 +530,8 @@ class LocalTab(GpuGuard):
 
     def local_scan(self):
         self.local_model.set_model(Gtk.StringList.new([_("Looking…")]))
-        self.local_model.set_sensitive(False)
-        self.local_model_b.set_sensitive(False)
+        if getattr(self, "local_ask_button", None) is not None:
+            self.local_ask_button.set_sensitive(False)
 
         def work():
             servers = local_llm.running()
@@ -546,9 +544,7 @@ class LocalTab(GpuGuard):
                                       else s.error) for s in servers if s.error]
             self.local_model.set_model(Gtk.StringList.new(labels or [_("No local LLM server is running")]))
             self.local_model_b.set_model(Gtk.StringList.new([_("no second model")] + labels))
-            self.local_model.set_sensitive(bool(self.local_choices))
-            self.local_model_b.set_sensitive(len(self.local_choices) > 1)
-            self.local_ask_button.set_sensitive(bool(self.local_choices))
+            self.local_ask_button.set_sensitive(bool(self.local_choices))   # the boxes stay readable
             if notes:
                 self.toast(" · ".join(notes))
             return False

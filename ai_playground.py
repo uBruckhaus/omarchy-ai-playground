@@ -374,6 +374,11 @@ class Playground(Adw.Application, Host, ThemeCss, ChessPage, SpeedTab, DuelTab, 
         self.combo_row(group, _("Corners"), desktop.corners_note(), [like, _("Rounded"), _("Square")],
                        corners.CHOICES.index(ai_core.saved_corners()),
                        lambda i: (self.save_setting(corners=corners.CHOICES[i]), self.apply_theme_css()))
+        self.combo_row(group, _("Text in choice boxes"),
+                       _("The chosen value in drop-down boxes: bright (white on dark themes, the theme's text colour "
+                         "on light ones) or dimmed, as before."),
+                       [_("Bright"), _("Dimmed")], 1 if ai_core.setting("choice_text") == "dim" else 0,
+                       lambda i: (self.save_setting(choice_text=("bright", "dim")[i]), self.apply_theme_css()))
         if desktop.NAME == "omarchy":
             self.combo_row(group, _("Look"),
                            _("The colours, light or dark: from the Omarchy theme, or GNOME's Adwaita (light or dark "

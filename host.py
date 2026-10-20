@@ -113,7 +113,6 @@ class Host:
         commands = [a.command for a in agents]
         if selected_command in commands:
             drop.set_selected(commands.index(selected_command))
-        drop.set_sensitive(bool(agents))
         return drop
 
     @staticmethod
