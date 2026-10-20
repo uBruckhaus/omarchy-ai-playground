@@ -5,7 +5,8 @@ and the local LLMs.
 
 A normal app window (no overlay): started again, it comes to the front; closing it quits.
 `ai-playground --agent <command> --test <tab>` opens a tab with that agent chosen (AI Agents
-Map starts it this way); an agent that is not installed and set up is ignored.
+Map starts it this way); an agent that is not installed and set up is ignored. `--toggle` (the bar
+icon): closes it when it is the window in front, else starts it or brings it to the front.
 
 Built from Asterism's core (one source, see tools/sync-plugin.py --edition playground): the
 Omarchy plugin ubruckhaus.ai-playground, and the same app on GNOME and other desktops.
@@ -15,6 +16,7 @@ from __future__ import annotations
 
 import os
 import sys
+import time
 from pathlib import Path
 
 HERE = Path(__file__).resolve().parent
@@ -40,27 +42,31 @@ import ai_core  # noqa: E402
 import corners  # noqa: E402
 import i18n  # noqa: E402
 import more_plugins  # noqa: E402
+from chess_import import ChessImport  # noqa: E402
 from chess_page import ChessPage  # noqa: E402
 from host import Host, askable_agents  # noqa: E402
 from i18n import _, N_  # noqa: E402
 from palette import ThemePalette  # noqa: E402
 from tabs import DuelTab, LocalTab, SpeedTab, VisionTab  # noqa: E402
+from text_guard import TextGuard  # noqa: E402
+from generate_tab import GenerateTab  # noqa: E402
 from theme_css import ThemeCss  # noqa: E402
 
 TABS = (("chess", N_("Chess")), ("speed", N_("Speed and cost")), ("duel", N_("Head to head")),
-        ("vision", N_("Vision")), ("local", N_("Local LLMs")))
+        ("vision", N_("Vision")), ("generate", N_("Generate")), ("local", N_("Local LLMs")))
 ICON = "\U000F0297"                    # Nerd Font gamepad: the header and the bar icon
 OWN_ID = "ubruckhaus.ai-playground"
 AGENTS_MAP_ID = "ubruckhaus.ai-agents-map"
 WINDOW_SIZE = (1100, 920)
+FRONT_GRACE = 1.0          # seconds: a bar click may take the focus just before --toggle arrives
 
 
 def parse_args(argv: list) -> dict:
-    """--agent <command> and --test <tab> (unknown words are ignored: it is a GUI)."""
-    wanted = {"agent": "", "test": ""}
+    """--agent <command>, --test <tab> and --toggle (unknown words are ignored: it is a GUI)."""
+    wanted = {"agent": "", "test": "", "toggle": "--toggle" in argv}
     words = list(argv)
     for i, word in enumerate(words):
-        for key in wanted:
+        for key in ("agent", "test"):
             if word == f"--{key}" and i + 1 < len(words):
                 wanted[key] = words[i + 1]
             elif word.startswith(f"--{key}="):
@@ -72,7 +78,7 @@ def parse_args(argv: list) -> dict:
     return wanted
 
 
-class Playground(Adw.Application, Host, ThemeCss, ChessPage, SpeedTab, DuelTab, VisionTab, LocalTab):
+class Playground(Adw.Application, TextGuard, Host, ThemeCss, ChessPage, ChessImport, SpeedTab, DuelTab, VisionTab, GenerateTab, LocalTab):
     def __init__(self):
         super().__init__(application_id=desktop.app_id(), flags=Gio.ApplicationFlags.HANDLES_COMMAND_LINE)
         self.window = None
@@ -84,12 +90,23 @@ class Playground(Adw.Application, Host, ThemeCss, ChessPage, SpeedTab, DuelTab, 
 
     def do_command_line(self, command_line):
         wanted = parse_args(command_line.get_arguments()[1:])
+        if wanted["toggle"] and self.in_front():
+            self.window.close()                        # as its close button: the tab is kept, it quits
+            return 0
         if self.window is None:
             self.build_window()
         self.open_wanted(wanted)
         self.window.present()
         desktop.focus_window(desktop.app_id())
         return 0
+
+    def in_front(self) -> bool:
+        """The window is shown and in front, or was a moment ago (a click on the bar icon can take
+        the focus just before the toggle arrives)."""
+        window = self.window
+        if window is None or not window.get_visible():
+            return False
+        return window.is_active() or time.monotonic() - self.left_front < FRONT_GRACE
 
     def open_wanted(self, wanted: dict):
         agent = next((a for a in self.ready_agents if a.command == wanted["agent"]), None)
@@ -117,6 +134,9 @@ class Playground(Adw.Application, Host, ThemeCss, ChessPage, SpeedTab, DuelTab, 
         window.set_default_size(*WINDOW_SIZE)
         window.set_size_request(720, 560)
         window.connect("close-request", self.on_close)
+        self.left_front = 0.0
+        window.connect("notify::is-active", lambda w, _p: not w.is_active()
+                       and setattr(self, "left_front", time.monotonic()))
         self.window = window
         self.ready_agents = [a for a in askable_agents() if self.chess_set_up(a)]
         self.agent_list = self.ready_agents             # ChessPage's agents to play against
@@ -148,10 +168,13 @@ class Playground(Adw.Application, Host, ThemeCss, ChessPage, SpeedTab, DuelTab, 
         self.stack.add_named(self.build_speed_tab(), "speed")
         self.stack.add_named(self.build_duel_tab(), "duel")
         self.stack.add_named(self.build_vision_tab(), "vision")
+        self.stack.add_named(self.build_generate_tab(), "generate")
         self.stack.add_named(self.build_local_tab(), "local")
         self.stack.add_named(self.build_settings_page(), "settings")
         self.stack.add_named(self.build_info_page(), "info")
+        self.stack.add_named(self.build_games_page(), "games")      # from the Saved games card's symbol
         card.append(self.stack)
+        self.guard_text_fields_in(window)              # paste and text drops only through bounded reads
 
         keys = Gtk.EventControllerKey()
         keys.connect("key-pressed", self.on_key)
@@ -216,6 +239,7 @@ class Playground(Adw.Application, Host, ThemeCss, ChessPage, SpeedTab, DuelTab, 
         if page in {k for k, _l in TABS}:
             self.save_setting(playground_tab=page)
         self.vision_cleanup()
+        self.gen_cleanup()
         self.quit()
         return False
 
@@ -227,7 +251,7 @@ class Playground(Adw.Application, Host, ThemeCss, ChessPage, SpeedTab, DuelTab, 
     def show_page(self, name: str):
         if self.stack.get_child_by_name(name) is None:
             return                                     # still being built (the chess tab opens its game)
-        if name not in ("settings", "info"):
+        if name not in ("settings", "info", "games"):
             self.last_tab = name
         self.stack.set_visible_child_name(name)
         for key, button in self.tab_buttons.items():
@@ -250,6 +274,7 @@ class Playground(Adw.Application, Host, ThemeCss, ChessPage, SpeedTab, DuelTab, 
         rival = self.chess_rival_agents[index] if 0 <= index < len(self.chess_rival_agents) else self.chess_agent
 
         self.chess_rival_choice.set_visible(True)
+        self.chess_rival_strength.set_visible(True)
         self.gpu_guard(self.agents_wanted([rival, self.chess_agent]),
                        lambda _one_by_one: ChessPage.chess_start_choice(self), alternating=True)
 
@@ -258,10 +283,16 @@ class Playground(Adw.Application, Host, ThemeCss, ChessPage, SpeedTab, DuelTab, 
         if ctrl and Gdk.KEY_1 <= keyval <= Gdk.KEY_1 + len(TABS) - 1:
             self.show_page(TABS[keyval - Gdk.KEY_1][0])
             return True
+        if ctrl and keyval in (Gdk.KEY_v, Gdk.KEY_V) and self.page_name() == "chess":
+            self.chess_paste()                         # a YouTube link from the clipboard: a video import
+            return True
         if ctrl and keyval == Gdk.KEY_comma:
             self.show_page("settings")
             return True
-        if self.page_name() in ("settings", "info") and keyval in (Gdk.KEY_Escape, Gdk.KEY_BackSpace):
+        if self.page_name() in ("settings", "info", "games") and keyval in (Gdk.KEY_Escape, Gdk.KEY_BackSpace) \
+                and not (self.page_name() == "games" and keyval == Gdk.KEY_BackSpace
+                         and (self.chess_games_search.has_focus()
+                              or self.chess_games_search.get_delegate().has_focus())):     # typing in the search
             self.show_page(getattr(self, "last_tab", "chess"))
             return True
         return False
@@ -282,6 +313,7 @@ class Playground(Adw.Application, Host, ThemeCss, ChessPage, SpeedTab, DuelTab, 
         row.append(self.chess_opponent)
         box.append(row)
         box.append(self.build_chess_page())
+        self.build_chess_import(row, box)           # Import video…, replay controls, drop target, Saved games
         if self.chess_opponents:
             self.open_chess(self.chess_opponents[0])
         else:
@@ -386,13 +418,27 @@ class Playground(Adw.Application, Host, ThemeCss, ChessPage, SpeedTab, DuelTab, 
                            [_("Omarchy theme"), _("GNOME (Adwaita)")], ai_core.LOOKS.index(ai_core.saved_look()),
                            lambda i: (self.save_setting(look=ai_core.LOOKS[i]), self.theme.reload(),
                                       self.apply_theme_css()))
-        group = self.preference_group(body, _("Several local models at once"))
-        explain = Gtk.Box(orientation=Gtk.Orientation.VERTICAL, spacing=8)
-        explain.add_css_class("am-help-card")
+        # How it works: cards that fold, open until folded.
+        alone = self.group_card(body, "explain-one-agent", _("One agent or none"), default_open=True)
+        for text in (
+                _("Most tests compare, but one agent is enough:"),
+                _("Chess: play against it, or let it play itself (Agent against agent), each side with its own "
+                  "strength, for example Master against Beginner."),
+                _("Speed and cost, Head to head: the models of the local LLM servers running here (see Local LLMs) "
+                  "take part next to the agents, so your agent can meet a local model, or two local models each "
+                  "other. The same one twice in Head to head keeps no score."),
+                _("Vision: only agents that take pictures (Claude Code, Codex, Pi). Local LLMs: no agent needed."),
+                _("No agent offered: install one and sign in, or connect it to a local LLM (AI Agents Map does both). "
+                  "An agent that is installed but not signed in is not offered, since it could not answer.")):
+            line = self.answer_label(text)
+            line.set_selectable(False)
+            alone.append(line)
+        explain = self.group_card(body, "explain-gpu", _("Several local models at once"), default_open=True)
         for text in (
                 _("When a test would use two or more different local models at the same time (two models on the "
-                  "Local LLMs tab, or agents that each use a local LLM in Speed and cost, Vision, Head to head or "
-                  "agent against agent chess), AI Playground first checks whether they fit in the GPU memory."),
+                  "Local LLMs tab, local models or agents that use a local LLM in Speed and cost or Head to head, "
+                  "such agents in Vision or agent against agent chess), AI Playground first checks whether they fit "
+                  "in the GPU memory."),
                 _("Free GPU memory: what the graphics card reports (AMD through the kernel, NVIDIA through "
                   "nvidia-smi). A model that is loaded already needs nothing more. Any other model needs about its "
                   "file size plus a tenth, and half a GB for its context. The size comes from Ollama, or from the "
@@ -406,7 +452,6 @@ class Playground(Adw.Application, Host, ThemeCss, ChessPage, SpeedTab, DuelTab, 
             line = self.answer_label(text)
             line.set_selectable(False)
             explain.append(line)
-        group.add(explain)
         box.append(self.page_scroller(body))
         return box
 
@@ -419,6 +464,7 @@ class Playground(Adw.Application, Host, ThemeCss, ChessPage, SpeedTab, DuelTab, 
             return
         self.save_setting(playground_tab=getattr(self, "last_tab", "chess"))
         self.vision_cleanup()
+        self.gen_cleanup()
         sys.stdout.flush()
         sys.stderr.flush()
         os.execv(sys.executable, [sys.executable, *sys.argv])

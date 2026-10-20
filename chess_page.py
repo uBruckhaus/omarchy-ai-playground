@@ -47,6 +47,7 @@ BOARDS = (("theme", N_("Theme colours"), None), ("wood", N_("Wood"), ("#f0d9b5",
           ("grey", N_("Grey"), ("#e6e6e6", "#9a9a9a")))
 PIECE_STYLES = (("classic", N_("Classic")), ("flat", N_("Flat")), ("theme", N_("Theme colours")))
 BOARD_MIN, BOARD_MAX = 320, 560
+TILE = 52                        # the Board and pieces menu's preview tiles
 TAKEN_W = 40                     # the columns of captured pieces beside the board
 TAKEN_ORDER = "QRBNP"            # how they are listed: the strongest first
 # Fonts whose chess glyphs are solid shapes (others, Font Awesome for one, draw them differently).
@@ -103,6 +104,17 @@ class ChessPage:
                                         and CHOICES[self.chess_choice.get_selected()][0] == "agents"
                                         and self.chess_start_choice())
         controls.append(self.chess_rival_choice)
+        # Agent against agent: White's own strength (the strength further on is Black's), so an agent
+        # can meet itself at another level.
+        self.chess_rival_strength = Gtk.DropDown.new_from_strings([_(label) for _key, label in STRENGTH_LABELS])
+        self.chess_rival_strength.set_visible(False)
+        self.chess_rival_strength.set_selected([k for k, _l in STRENGTH_LABELS].index(
+            self.chess_saved("chess_rival_strength", STRENGTH_LABELS, chess_agent.DEFAULT_STRENGTH)))
+        self.chess_rival_strength.set_tooltip_text(_("White's strength: how strongly the agent playing White is "
+                                                     "asked to play"))
+        self.chess_rival_strength.connect("notify::selected", lambda d, *_a: self.save_setting(
+            chess_rival_strength=STRENGTH_LABELS[d.get_selected()][0]))
+        controls.append(self.chess_rival_strength)
         self.chess_thinking_choice = Gtk.DropDown.new_from_strings([_(label) for _key, label in THINKING_LABELS])
         self.chess_thinking_choice.set_selected([k for k, _l in THINKING_LABELS].index(
             self.chess_saved("chess_thinking", THINKING_LABELS, chess_agent.DEFAULT_THINKING)))
@@ -175,7 +187,10 @@ class ChessPage:
         right_click = Gtk.GestureClick(button=Gdk.BUTTON_SECONDARY)
         right_click.connect("pressed", lambda _g, _n, x, y: self.chess_clicked(self.chess_square_at(x, y), True, x, y))
         board.add_controller(right_click)
-        drop = Gtk.DropTarget.new(str, Gdk.DragAction.COPY)
+        drop = Gtk.DropTarget.new(str, Gdk.DragAction.COPY | Gdk.DragAction.LINK | Gdk.DragAction.MOVE)
+        # Only pieces dragged inside this window (their value is handed over in-process); a drop from
+        # another program goes on to the chess tab's own drop target, which reads it bounded.
+        drop.connect("accept", lambda _t, d: d.get_drag() is not None)
         drop.connect("drop", self.chess_card_dropped)
         board.add_controller(drop)
         self.chess_board = board
@@ -200,7 +215,8 @@ class ChessPage:
 
         # Below: a card that folds, with whose move it is (or the hint while setting up), what the
         # agent said about its move and the game so far; folded, its heading still shows the status.
-        self.chess_info = self.group_card(body, "chess-game", _("Game"), default_open=True)
+        self.chess_info = self.group_card(body, "chess-game", _("Game"), icon="applications-games-symbolic",
+                                          default_open=True)
         self.chess_status = Gtk.Label(xalign=0, wrap=True)
         self.chess_status.add_css_class("am-chess-status")
         self.chess_info.append(self.chess_status)
@@ -244,45 +260,94 @@ class ChessPage:
         return value if value in [c[0] for c in choices] else default
 
     def build_chess_look(self) -> Gtk.Widget:
-        """The header's Board and pieces menu: the squares' colours, how the pieces are drawn, and
-        the coordinates; the board shows each change at once."""
+        """The header's Board and pieces menu: a tile per board (its squares) and per piece style (a
+        white and a black knight on the chosen board), the chosen ones marked; the coordinates below.
+        The board shows each change at once."""
         button = Gtk.MenuButton(valign=Gtk.Align.CENTER)
         mark = Gtk.Label(label="\U000F03D8")                 # Nerd Font palette
         mark.add_css_class("am-gear")
         button.set_child(mark)
         button.add_css_class("am-gear-btn")
         button.set_tooltip_text(_("Board and pieces"))
-        grid = Gtk.Grid(row_spacing=8, column_spacing=12)
-        grid.set_margin_top(8)
-        grid.set_margin_bottom(8)
-        grid.set_margin_start(8)
-        grid.set_margin_end(8)
         self.chess_board_style = self.chess_saved("chess_board", BOARDS, "theme")
         self.chess_piece_style = self.chess_saved("chess_pieces", PIECE_STYLES, "classic")
         self.chess_coordinates = ai_core.setting("chess_coordinates") is not False
+        box = Gtk.Box(orientation=Gtk.Orientation.VERTICAL, spacing=8, margin_top=10, margin_bottom=10,
+                      margin_start=10, margin_end=10)
+        self.chess_look_tiles = []
 
-        def choice(row, title, entries, current, on_pick):
-            label = Gtk.Label(label=title, xalign=0)
-            label.add_css_class("am-dim")
-            grid.attach(label, 0, row, 1, 1)
-            drop = Gtk.DropDown.new_from_strings([_(e[1]) for e in entries])
-            drop.set_selected([e[0] for e in entries].index(current))
-            drop.connect("notify::selected", lambda d, *_a: on_pick(entries[d.get_selected()][0]))
-            grid.attach(drop, 1, row, 1, 1)
-        choice(0, _("Board"), BOARDS, self.chess_board_style,
-               lambda key: self.chess_set_look(chess_board=key))
-        choice(1, _("Pieces"), PIECE_STYLES, self.chess_piece_style,
-               lambda key: self.chess_set_look(chess_pieces=key))
-        label = Gtk.Label(label=_("Coordinates"), xalign=0)
-        label.add_css_class("am-dim")
-        grid.attach(label, 0, 2, 1, 1)
-        switch = Gtk.Switch(active=self.chess_coordinates, halign=Gtk.Align.START)
+        def section(title, entries, current, draw, on_pick):
+            heading = Gtk.Label(label=title.upper(), xalign=0)
+            heading.add_css_class("am-setting-heading")
+            box.append(heading)
+            row = Gtk.Box(spacing=6)
+            group = None
+            for entry in entries:
+                key, label = entry[0], entry[1]
+                tile = Gtk.ToggleButton(active=key == current)
+                tile.add_css_class("am-look-tile")
+                if group is not None:
+                    tile.set_group(group)
+                group = group or tile
+                inner = Gtk.Box(orientation=Gtk.Orientation.VERTICAL, spacing=4)
+                area = Gtk.DrawingArea(content_width=TILE, content_height=TILE, halign=Gtk.Align.CENTER)
+                area.set_draw_func(lambda _a, cr, w, h, k=key: draw(cr, w, h, k))
+                inner.append(area)
+                name = Gtk.Label(label=_(label))
+                name.add_css_class("am-look-name")
+                inner.append(name)
+                tile.set_child(inner)
+                tile.connect("toggled", lambda b, k=key: b.get_active() and on_pick(k))
+                row.append(tile)
+                self.chess_look_tiles.append(area)
+            box.append(row)
+
+        section(_("Board"), BOARDS, self.chess_board_style, self.chess_draw_board_tile,
+                lambda key: self.chess_set_look(chess_board=key))
+        section(_("Pieces"), PIECE_STYLES, self.chess_piece_style, self.chess_draw_piece_tile,
+                lambda key: self.chess_set_look(chess_pieces=key))
+        line = Gtk.Box(spacing=8, margin_top=4)
+        label = Gtk.Label(label=_("Coordinates"), xalign=0, hexpand=True)
+        label.add_css_class("am-look-name")
+        line.append(label)
+        switch = Gtk.Switch(active=self.chess_coordinates, valign=Gtk.Align.CENTER)
         switch.connect("notify::active", lambda w, *_a: self.chess_set_look(chess_coordinates=w.get_active()))
-        grid.attach(switch, 1, 2, 1, 1)
+        line.append(switch)
+        box.append(line)
         popover = Gtk.Popover()
-        popover.set_child(grid)
+        popover.set_child(box)
         button.set_popover(popover)
+        self.chess_look_button = button
         return button
+
+    def chess_draw_board_tile(self, cr, width: int, height: int, style: str):
+        """A 4×4 corner of this board."""
+        colors = self.theme.colors
+        light, dark = self.chess_squares(_rgb(colors.get("background", "#1e1e2e")),
+                                         _rgb(colors.get("foreground", "#cdd6f4")),
+                                         _rgb(colors.get("accent", "#89b4fa")), style)
+        cell = min(width, height) / 4
+        for row in range(4):
+            for col in range(4):
+                cr.set_source_rgb(*(light if (row + col) % 2 == 0 else dark))
+                cr.rectangle(col * cell, row * cell, cell + 0.5, cell + 0.5)
+                cr.fill()
+
+    def chess_draw_piece_tile(self, cr, width: int, height: int, style: str):
+        """A white and a black knight in this style, on the chosen board's two square colours."""
+        colors = self.theme.colors
+        light, dark = self.chess_squares(_rgb(colors.get("background", "#1e1e2e")),
+                                         _rgb(colors.get("foreground", "#cdd6f4")),
+                                         _rgb(colors.get("accent", "#89b4fa")))
+        half = width / 2
+        for i, (colour, piece) in enumerate(((light, "N"), (dark, "n"))):
+            cr.set_source_rgb(*colour)
+            cr.rectangle(i * half, 0, half + 0.5, height)
+            cr.fill()
+        layout = PangoCairo.create_layout(cr)
+        layout.set_font_description(Pango.FontDescription.from_string(f"{PIECE_FONTS} {int(half * 1.15)}px"))
+        for i, piece in enumerate(("N", "n")):
+            self.chess_paint_piece(cr, layout, piece, i * half + half / 2, height / 2, half, style)
 
     def chess_set_look(self, **values):
         self.save_setting(**values)
@@ -290,10 +355,13 @@ class ChessPage:
         self.chess_piece_style = values.get("chess_pieces", self.chess_piece_style)
         self.chess_coordinates = values.get("chess_coordinates", self.chess_coordinates)
         self.chess_board.queue_draw()
+        for tile in getattr(self, "chess_look_tiles", []):
+            tile.queue_draw()                          # the piece tiles stand on the chosen board
 
-    def chess_squares(self, bg, fg, accent):
-        """The light and dark squares' colours of the chosen board."""
-        fixed = next((c for k, _l, c in BOARDS if k == self.chess_board_style), None)
+    def chess_squares(self, bg, fg, accent, style: str | None = None):
+        """The light and dark squares' colours of the chosen board (or of the board `style`)."""
+        style = style or self.chess_board_style
+        fixed = next((c for k, _l, c in BOARDS if k == style), None)
         if fixed is None:
             return _mix(bg, fg, 0.62), _mix(bg, accent, 0.45)
         return _rgb(fixed[0]), _rgb(fixed[1])
@@ -374,6 +442,8 @@ class ChessPage:
     def chess_reset(self, start_pos, player: str, mode: str = "game", rival=None):
         self.chess_token += 1                       # an answer still on its way is dropped
         self.chess_rival = rival                    # agent against agent: it plays player's side
+        if mode != "replay" and hasattr(self, "chess_replay_leave"):
+            self.chess_replay_leave()               # a saved game was on the board (chess_import)
         self.chess_start_pos = start_pos
         self.chess_pos = start_pos
         self.chess_moves_played = []
@@ -386,10 +456,16 @@ class ChessPage:
         self.chess_said = ""
         self.chess_said_by = ""
         self.chess_error = ""
+        self.chess_saved_id = ""                    # the saved game this one updates (chess_import)
 
     def chess_start_choice(self):
         key = CHOICES[self.chess_choice.get_selected()][0]
         self.chess_rival_choice.set_visible(key == "agents")
+        self.chess_rival_strength.set_visible(key == "agents")
+        self.chess_strength_choice.set_tooltip_text(
+            _("Black's strength: how strongly the agent playing Black is asked to play") if key == "agents" else
+            _("Strength: how strongly the agent is asked to play. A beginner makes mistakes now and then; "
+              "the strongest play also wants a long thinking time."))
         if key == "agents":
             index = self.chess_rival_choice.get_selected()
             rival = self.chess_rival_agents[index] if 0 <= index < len(self.chess_rival_agents) else self.chess_agent
@@ -441,7 +517,9 @@ class ChessPage:
         self.chess_last = move
         self.chess_pos = rules.apply(self.chess_pos, move)
         self.chess_selected = None
-
+        if self.chess_mode == "game" and rules.status(self.chess_pos) != "ongoing" \
+                and hasattr(self, "chess_save_current"):
+            GLib.idle_add(lambda: self.chess_save_current(auto=True) and False)   # a finished game is kept
     # --- the agent's move --------------------------------------------------------------------------
 
     def chess_ask_agent(self, retry_of: str = ""):
@@ -455,7 +533,10 @@ class ChessPage:
         self.chess_token += 1
         token, pos = self.chess_token, self.chess_pos
         level = THINKING_LABELS[self.chess_thinking_choice.get_selected()][0]
-        strength = STRENGTH_LABELS[self.chess_strength_choice.get_selected()][0]
+        # Agent against agent: the side you would play (White) is the rival's, with its own strength.
+        side_choice = self.chess_rival_strength if self.chess_rival is not None \
+            and self.chess_pos.turn == self.chess_player else self.chess_strength_choice
+        strength = STRENGTH_LABELS[side_choice.get_selected()][0]
         text = chess_agent.prompt(self.chess_start_pos, list(self.chess_moves_played),
                                   self.chess_pos.turn, i18n.current(), level, strength)
         if retry_of:
@@ -511,6 +592,8 @@ class ChessPage:
         name = mover.name if mover is not None else ""
         if define:
             status = _("Pick a piece below or above, then click squares; a right click empties a square.")
+        elif self.chess_mode == "replay":
+            status = self.chess_replay_status()        # a saved game (chess_import)
         elif self.chess_thinking:
             spent = int(time.monotonic() - getattr(self, "chess_think_start", time.monotonic()))
             limit = getattr(self, "chess_think_limit", 0)
@@ -534,6 +617,8 @@ class ChessPage:
         self.chess_retry.set_visible(bool(self.chess_error) and not self.chess_thinking)
         self.chess_moves.set_label(rules.game_san(self.chess_start_pos, self.chess_moves_played)
                                    if self.chess_moves_played and not define else "")
+        if hasattr(self, "chess_mark_save"):
+            self.chess_mark_save()
         self.chess_board.queue_draw()
 
     def chess_tick(self, token: int) -> bool:
@@ -717,14 +802,14 @@ class ChessPage:
             self.chess_paint_piece(cr, layout, self.chess_drag["piece"], self.chess_drag["x"], self.chess_drag["y"],
                                    cell * 1.1)
 
-    def chess_paint_piece(self, cr, layout, piece: str, cx: float, cy: float, cell: float):
+    def chess_paint_piece(self, cr, layout, piece: str, cx: float, cy: float, cell: float, style: str | None = None):
         """A piece centred on (cx, cy), as Board and pieces › Pieces says.
         Classic: White the solid shape filled light, its contours and details (the outline glyph) dark
         on top; Black a light halo round the solid shape, the shape dark. Flat: both the solid shape
         alone, with a thin edge. Theme colours: White in the theme's text colour with details in its
         background, Black in a dark tint of its accent with an edge in its text colour."""
         kind = piece.upper()
-        style = getattr(self, "chess_piece_style", "classic")
+        style = style or getattr(self, "chess_piece_style", "classic")
         light, ink = (0.97, 0.96, 0.93), (0.10, 0.10, 0.12)
         if style == "theme":
             colors = self.theme.colors
@@ -852,7 +937,9 @@ class ChessPage:
             self.chess_selected = None
             self.chess_board.queue_draw()
 
-    def chess_card_dropped(self, _target, value, x, y) -> bool:
+    def chess_card_dropped(self, target, value, x, y) -> bool:
+        if len(str(value)) > 1 and hasattr(self, "chess_dropped"):
+            return self.chess_dropped(target, value, x, y)    # a link or a file path, not a piece: an import
         sq = self.chess_square_at(x, y)
         if self.chess_mode != "define" or sq is None or str(value) not in GLYPHS and str(value).upper() not in GLYPHS:
             return False

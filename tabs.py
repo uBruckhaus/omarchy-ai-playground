@@ -11,6 +11,7 @@ import tempfile
 import threading
 import time
 from pathlib import Path
+from types import SimpleNamespace
 
 from gi.repository import Gio, GLib, Gtk
 
@@ -18,6 +19,7 @@ import agent_run
 import ai_core
 import gpu_check
 import local_llm
+import picture_check
 from i18n import _
 
 SPEED_PROMPT = "Write a Python function that tells whether a string is a palindrome, ignoring case and spaces. " \
@@ -103,33 +105,81 @@ class GpuGuard:
         dialog.connect("response", lambda _d, answer: answer != "cancel" and go(answer == "one"))
         dialog.present(self.window)
 
-    def agents_wanted(self, agents: list):
-        """A make_wanted for these agents: the local model each one uses now."""
+    def agents_wanted(self, contestants: list):
+        """A make_wanted for these agents and local models: the local model each one uses."""
         def make():
             wanted = []
-            for agent in agents:
-                used = gpu_check.agent_model(agent.command)
+            for c in contestants:
+                used = self.model_of(c)
                 if used is not None:
-                    wanted.append((f"{agent.name}: {used[1]}", used[0], used[1]))
+                    label = used[1] if getattr(c, "kind", "agent") == "model" else f"{c.name}: {used[1]}"
+                    wanted.append((label, used[0], used[1]))
             return wanted
         return make
+
+    # --- contestants: the agents set up here, and the models of the local LLM servers running ------
+
+    @staticmethod
+    def as_contestant(agent):
+        return SimpleNamespace(id=agent.command, name=agent.name, kind="agent", command=agent.command,
+                               server=None, model="")
+
+    def contestants(self, with_models: bool = True) -> list:
+        """The agents that are set up, then (with_models) every model of the local LLM servers found
+        on the Local LLMs tab: one agent is enough to compare it with a local model."""
+        found = [self.as_contestant(a) for a in self.ready_agents]
+        if with_models:
+            found += [SimpleNamespace(id=f"local:{server.key}:{model}", name=f"{server.name} · {model}", kind="model",
+                                      command="", server=server, model=model)
+                      for server, model in getattr(self, "local_choices", [])]
+        return found
+
+    @staticmethod
+    def model_of(contestant):
+        """(server key, model) of the local model it uses: the model itself, or the agent's."""
+        if getattr(contestant, "kind", "agent") == "model":
+            return contestant.server.key, contestant.model
+        return gpu_check.agent_model(contestant.command)
+
+    def ask_contestant(self, contestant, prompt: str, images=()):
+        """Blocking: an agent through its own command, a local model through its server's API."""
+        if getattr(contestant, "kind", "agent") == "model":
+            return local_llm.ask(contestant.server.port, contestant.model, prompt)
+        return agent_run.ask(contestant.command, prompt, images)
+
+    def make_room(self, contestant):
+        """After its answer, when asked one after the other: Ollama unloads the model."""
+        used = self.model_of(contestant)
+        if used is not None:
+            gpu_check.unload(*used)
+
+    def contestants_changed(self):
+        """The Local LLMs tab found its servers: the tabs that take local models show them too."""
+        if getattr(self, "speed_checks_box", None) is not None:
+            self.speed_fill()
+        if getattr(self, "duel_a", None) is not None:
+            self.duel_fill()
 
 
 class AgentChecks(GpuGuard):
     """Tick boxes for the agents a run asks (remembered in playground_agents)."""
 
-    def agent_checks(self, agents: list) -> tuple[Gtk.Widget, dict]:
+    def agent_checks(self, contestants: list, box: Gtk.FlowBox | None = None) -> tuple[Gtk.Widget, dict]:
+        """A tick box per agent or local model (in box, emptied first). Ticked: as saved; before
+        anything is saved, every agent and no local model."""
         saved = ai_core.setting("playground_agents") or []
-        box = Gtk.FlowBox(selection_mode=Gtk.SelectionMode.NONE, column_spacing=12, row_spacing=4,
-                          max_children_per_line=6)
+        if box is None:
+            box = Gtk.FlowBox(selection_mode=Gtk.SelectionMode.NONE, column_spacing=12, row_spacing=4,
+                              max_children_per_line=6)
+        box.remove_all()
         checks = {}
-        for agent in agents:
-            check = Gtk.CheckButton(label=agent.name, active=not saved or agent.command in saved)
+        for c in contestants:
+            check = Gtk.CheckButton(label=c.name, active=c.id in saved if saved else c.kind == "agent")
             check.connect("toggled", lambda *_a: self.save_setting(
-                playground_agents=[c for c, b in checks.items() if b.get_active()]))
-            checks[agent.command] = check
+                playground_agents=[i for i, b in checks.items() if b.get_active()]))
+            checks[c.id] = check
             box.append(check)
-        if not agents:
+        if not contestants:
             box.append(Gtk.Label(label=_("No agent that can be asked is set up."), xalign=0))
         return box, checks
 
@@ -137,7 +187,7 @@ class AgentChecks(GpuGuard):
                    counter: str = "speed_run"):
         """Ask every ticked agent the same question (at once, or one after the other when their
         local models may not fit in GPU memory together); a card per agent with its time."""
-        chosen = [a for a in agents if checks.get(a.command) is not None and checks[a.command].get_active()]
+        chosen = [c for c in agents if checks.get(c.id) is not None and checks[c.id].get_active()]
         if not prompt or not chosen:
             return
         self.gpu_guard(self.agents_wanted(chosen),
@@ -151,7 +201,7 @@ class AgentChecks(GpuGuard):
         start = time.monotonic()
         jobs = []
         for agent in chosen:
-            card = self.group_card(results, f"run-{agent.command}", agent.name, summary=_("asking…"),
+            card = self.group_card(results, f"run-{agent.id}", agent.name, summary=_("asking…"),
                                    default_open=True)
             answer = self.answer_label(_("asking…"))
             card.append(answer)
@@ -167,12 +217,10 @@ class AgentChecks(GpuGuard):
             GLib.timeout_add(500, tick)
 
             def work(agent=agent, card=card, answer=answer, flag=flag):
-                result = agent_run.ask(agent.command, prompt, images)
+                result = self.ask_contestant(agent, prompt, images)
                 GLib.idle_add(self.show_result, run, counter, card, answer, result, flag)
                 if one_by_one:
-                    used = gpu_check.agent_model(agent.command)
-                    if used is not None:
-                        gpu_check.unload(*used)          # room for the next one (Ollama)
+                    self.make_room(agent)                # room for the next one (Ollama)
             jobs.append(work)
         if one_by_one:
             def in_turn():
@@ -198,19 +246,22 @@ class SpeedTab(AgentChecks):
     def build_speed_tab(self) -> Gtk.Widget:
         box = Gtk.Box(orientation=Gtk.Orientation.VERTICAL, spacing=ai_core.GAP)
         self.tab_intro(box, _("Speed and cost"),
-                       _("The same question to several agents at once: how long each one takes, and its tokens "
-                         "and cost where the agent reports them (Claude Code does)."))
+                       _("The same question to several agents and local models at once: how long each one takes, "
+                         "and its tokens and cost where it reports them (Claude Code and the local LLMs do)."))
         self.speed_prompt = self.prompt_view(SPEED_PROMPT)
         box.append(self.speed_prompt)
-        checks, self.speed_checks = self.agent_checks(self.ready_agents)
-        box.append(checks)
-        box.append(self.small_button(_("Ask them all"), self.speed_ask))
+        self.speed_checks_box, self.speed_checks = self.agent_checks(self.contestants())
+        box.append(self.speed_checks_box)
+        box.append(self.action_button(_("Ask"), self.speed_ask, _("Every ticked agent gets the question")))
         self.speed_results = Gtk.Box(orientation=Gtk.Orientation.VERTICAL, spacing=ai_core.GAP)
         box.append(self.speed_results)
         return self.page_scroller(box)
 
+    def speed_fill(self):
+        _box, self.speed_checks = self.agent_checks(self.contestants(), self.speed_checks_box)
+
     def speed_ask(self):
-        self.run_agents(self.ready_agents, self.speed_checks, self.view_text(self.speed_prompt),
+        self.run_agents(self.contestants(), self.speed_checks, self.view_text(self.speed_prompt),
                         self.speed_results, counter="speed_run")
 
 
@@ -218,21 +269,23 @@ class DuelTab(GpuGuard):
     def build_duel_tab(self) -> Gtk.Widget:
         box = Gtk.Box(orientation=Gtk.Orientation.VERTICAL, spacing=ai_core.GAP)
         self.tab_intro(box, _("Head to head"),
-                       _("One question to two agents; you pick the better answer and the score is kept. "
-                         "Blind: you see which agent wrote which only after you have chosen."))
+                       _("One question to two agents or local models; you pick the better answer and the score is "
+                         "kept. Blind: you see which one wrote which only after you have chosen."))
         self.duel_prompt = self.prompt_view(DUEL_PROMPT)
         box.append(self.duel_prompt)
         row = Gtk.Box(spacing=8)
-        agents = self.ready_agents
-        self.duel_a = self.agent_dropdown(agents, agents[0].command if agents else "")
-        self.duel_b = self.agent_dropdown(agents, agents[1].command if len(agents) > 1 else "")
+        self.duel_choices = self.contestants()
+        self.duel_a = self.agent_dropdown(self.duel_choices)
+        self.duel_b = self.agent_dropdown(self.duel_choices)
+        self.duel_b.set_selected(1 if len(self.duel_choices) > 1 else 0)
+        row.add_css_class("am-chess-controls")
         row.append(self.duel_a)
         row.append(Gtk.Label(label=_("against")))
         row.append(self.duel_b)
         self.duel_blind = Gtk.CheckButton(label=_("Blind"), active=True)
         row.append(self.duel_blind)
-        row.append(self.small_button(_("Ask both"), self.duel_ask))
         box.append(row)
+        box.append(self.action_button(_("Ask"), self.duel_ask, _("Both get the same question")))
         self.duel_sides = Gtk.Box(spacing=ai_core.GAP, homogeneous=True)
         self.duel_cards = []
         for _side in range(2):
@@ -258,8 +311,19 @@ class DuelTab(GpuGuard):
         self.duel_pair = None
         return self.page_scroller(box)
 
+    def duel_fill(self):
+        """Local models found: both choices list them too; what was chosen stays chosen."""
+        chosen = [self.duel_choices[d.get_selected()].id if d.get_selected() < len(self.duel_choices) else ""
+                  for d in (self.duel_a, self.duel_b)]
+        self.duel_choices = self.contestants()
+        ids = [c.id for c in self.duel_choices]
+        names = Gtk.StringList.new([c.name for c in self.duel_choices] or [_("No agent is set up")])
+        for drop, was, fallback in ((self.duel_a, chosen[0], 0), (self.duel_b, chosen[1], 1)):
+            drop.set_model(names)
+            drop.set_selected(ids.index(was) if was in ids else min(fallback, max(0, len(ids) - 1)))
+
     def duel_ask(self):
-        agents = self.ready_agents
+        agents = self.duel_choices
         prompt = self.view_text(self.duel_prompt)
         if not agents or not prompt:
             return
@@ -284,12 +348,10 @@ class DuelTab(GpuGuard):
             text.set_label(_("asking…"))
 
             def work(side=side, agent=agent):
-                result = agent_run.ask(agent.command, prompt)
+                result = self.ask_contestant(agent, prompt)
                 GLib.idle_add(self.duel_answer, run, side, result)
                 if one_by_one:
-                    used = gpu_check.agent_model(agent.command)
-                    if used is not None:
-                        gpu_check.unload(*used)
+                    self.make_room(agent)
             jobs.append(work)
         if one_by_one:
             threading.Thread(target=lambda: [job() for job in jobs if run == self.duel_run], daemon=True).start()
@@ -321,9 +383,9 @@ class DuelTab(GpuGuard):
         for side in (0, 1):
             title, _text = self.duel_cards[side]
             title.set_label(f"{self.duel_name(side, True)} · {result_line(self.duel_answers[side])}".upper())
-        first, second = sorted((pair[0].command, pair[1].command))
+        first, second = sorted((pair[0].id, pair[1].id))
         if first == second:
-            self.duel_score.set_label(_("The same agent twice: no score is kept."))
+            self.duel_score.set_label(_("The same one twice: no score is kept."))
             return
         scores = ai_core.setting("duel_scores") or {}
         key = f"{first}|{second}"
@@ -331,9 +393,9 @@ class DuelTab(GpuGuard):
         if winner is None:
             score[1] += 1
         else:
-            score[0 if pair[winner].command == first else 2] += 1
+            score[0 if pair[winner].id == first else 2] += 1
         self.save_setting(duel_scores={**scores, key: score})
-        names = {a.command: a.name for a in pair}
+        names = {a.id: a.name for a in pair}
         self.duel_score.set_label(_("Score: {0} {1} · ties {2} · {3} {4}").format(
             names[first], score[0], score[1], names[second], score[2]))
 
@@ -345,7 +407,7 @@ class VisionTab(AgentChecks):
                        _("A picture, a screenshot or frames of a video for the agents that can see "
                          "(Claude Code, Codex, Pi). Pictures are scaled down and saved again first, so no "
                          "photo metadata goes out."))
-        self.vision_agents = [a for a in self.ready_agents if agent_run.takes_images(a.command)]
+        self.vision_agents = [c for c in self.contestants(with_models=False) if agent_run.takes_images(c.command)]
         row = Gtk.Box(spacing=8)
         row.append(self.small_button(_("Picture…"), self.vision_pick_picture))
         if shutil.which("grim"):
@@ -354,6 +416,10 @@ class VisionTab(AgentChecks):
         if shutil.which("ffmpeg") and shutil.which("ffprobe"):
             row.append(self.small_button(_("Video…"), self.vision_pick_video,
                                          _("Four frames spread over the video")))
+        self.vision_clear_button = self.small_button(_("Clear"), self.vision_clear,
+                                                     _("Remove the pictures (the answers stay)"))
+        self.vision_clear_button.set_sensitive(False)
+        row.append(self.vision_clear_button)
         box.append(row)
         self.vision_previews = Gtk.Box(spacing=6)
         box.append(self.vision_previews)
@@ -361,7 +427,8 @@ class VisionTab(AgentChecks):
         box.append(self.vision_prompt)
         checks, self.vision_checks = self.agent_checks(self.vision_agents)
         box.append(checks)
-        box.append(self.small_button(_("Ask them all"), self.vision_ask))
+        box.append(self.action_button(_("Ask"), self.vision_ask, _("Every ticked agent gets the pictures and "
+                                                                    "the question")))
         self.vision_results = Gtk.Box(orientation=Gtk.Orientation.VERTICAL, spacing=ai_core.GAP)
         box.append(self.vision_results)
         self.vision_folder = tempfile.mkdtemp(prefix="ai-playground-pictures-")   # private (0700)
@@ -380,22 +447,53 @@ class VisionTab(AgentChecks):
         self.vision_images = []
         while (child := self.vision_previews.get_first_child()) is not None:
             self.vision_previews.remove(child)
+        self.vision_clear_button.set_sensitive(False)
 
-    def vision_add(self, source: str, name: str) -> bool:
-        """A picture scaled to PICTURE_SIDE and saved as JPEG in the private folder."""
+    def vision_prepare(self, source: str, name: str) -> str:
+        """Off the main thread: the picture scaled to PICTURE_SIDE and saved as JPEG in the private
+        folder (no metadata goes out); "" when it cannot be read or its header declares a picture
+        too large to decode (picture_check: checked before anything decodes it)."""
         from gi.repository import GdkPixbuf
+        if not picture_check.acceptable(source):
+            return ""
         try:
             pixbuf = GdkPixbuf.Pixbuf.new_from_file_at_scale(source, PICTURE_SIDE, PICTURE_SIDE, True)
             path = os.path.join(self.vision_folder, name + ".jpg")
             pixbuf.savev(path, "jpeg", ["quality"], ["90"])
         except GLib.Error:
+            return ""
+        return path
+
+    def vision_load(self, sources: list, failed: str, prompt: str, remove: bool = False):
+        """[(file, name)] prepared in a thread, then shown; `failed` is toasted when none could be
+        read. `remove`: the files are our own temporary ones (screenshot, frames) and go after."""
+        def work():
+            done = [p for p in (self.vision_prepare(source, name) for source, name in sources) if p]
+            if remove:
+                for source, _name in sources:
+                    try:
+                        os.unlink(source)
+                    except OSError:
+                        pass
+            GLib.idle_add(show, done)
+
+        def show(paths):
+            for path in paths:
+                self.vision_show(path)
+            if not paths:
+                self.toast(failed)
+            self.vision_set_prompt(prompt)
             return False
+        threading.Thread(target=work, daemon=True).start()
+
+    def vision_show(self, path: str):
+        """One of our own prepared pictures (JPEG, at most PICTURE_SIDE) among the previews."""
         self.vision_images.append(path)
         picture = Gtk.Picture.new_for_filename(path)
         picture.set_size_request(160, 100)
         picture.set_content_fit(Gtk.ContentFit.CONTAIN)
         self.vision_previews.append(picture)
-        return True
+        self.vision_clear_button.set_sensitive(True)
 
     def vision_dialog(self, title: str, mime_types: list, on_file):
         dialog = Gtk.FileDialog(title=title)
@@ -418,24 +516,26 @@ class VisionTab(AgentChecks):
     def vision_pick_picture(self):
         def chosen(path):
             self.vision_clear()
-            if not self.vision_add(path, "picture"):
-                self.toast(_("That picture cannot be read."))
-            self.vision_set_prompt(VISION_PROMPT)
+            self.vision_load([(path, "picture")], _("That picture cannot be read."), VISION_PROMPT)
         self.vision_dialog(_("A picture"), ["image/png", "image/jpeg", "image/webp", "image/gif"], chosen)
 
     def vision_screenshot(self):
         def shoot():
-            import ai_core as core
             raw = os.path.join(self.vision_folder, "screen.png")
-            _out, ok = core.read_bounded_output(["grim", raw], timeout=10)
             self.vision_clear()
-            if not ok or not self.vision_add(raw, "screenshot"):
-                self.toast(_("The screenshot did not work."))
-            try:
-                os.unlink(raw)
-            except OSError:
-                pass
-            self.vision_set_prompt(VISION_PROMPT)
+
+            def grab():
+                ai_core.read_bounded_output(["grim", raw], timeout=10)
+            thread = threading.Thread(target=grab, daemon=True)
+            thread.start()
+
+            def wait():
+                if thread.is_alive():
+                    return True
+                self.vision_load([(raw, "screenshot")], _("The screenshot did not work."), VISION_PROMPT,
+                                 remove=True)
+                return False
+            GLib.timeout_add(100, wait)
             return False
         GLib.timeout_add(3000, shoot)
 
@@ -449,15 +549,8 @@ class VisionTab(AgentChecks):
                 GLib.idle_add(done, frames)
 
             def done(frames):
-                for i, frame in enumerate(frames):
-                    self.vision_add(frame, f"frame-{i + 1}")
-                    try:
-                        os.unlink(frame)
-                    except OSError:
-                        pass
-                if not frames:
-                    self.toast(_("No frames could be taken from that video."))
-                self.vision_set_prompt(VIDEO_PROMPT)
+                self.vision_load([(frame, f"frame-{i + 1}") for i, frame in enumerate(frames)],
+                                 _("No frames could be taken from that video."), VIDEO_PROMPT, remove=True)
                 return False
             threading.Thread(target=work, daemon=True).start()
         self.vision_dialog(_("A video"), ["video/*"], chosen)
@@ -477,23 +570,19 @@ class VisionTab(AgentChecks):
 def video_frames(path: str, folder: str, count: int = VIDEO_FRAMES) -> list:
     """count frames spread over the video, as PNG files in folder (ffprobe, ffmpeg; bounded)."""
     import ai_core as core
+    import chess_video
     if not os.path.isabs(path):
         return []
-    out, ok = core.read_bounded_output(["ffprobe", "-v", "error", "-show_entries", "format=duration",
-                                        "-of", "default=noprint_wrappers=1:nokey=1", "-i", path],
-                                       max_bytes=4096, timeout=20)
-    try:
-        duration = float(out.decode().strip()) if ok else 0.0
-    except ValueError:
-        duration = 0.0
+    duration = chess_video.duration(path)          # local file, real video container, memory limit
     if duration <= 0:
         return []
     frames = []
     for i in range(count):
         at = duration * (i + 0.5) / count
         target = os.path.join(folder, f"video-{i + 1}.png")
-        _out, ok = core.read_bounded_output(["ffmpeg", "-nostdin", "-v", "error", "-y", "-ss", f"{at:.2f}",
-                                             "-i", path, "-frames:v", "1", target], max_bytes=4096, timeout=30)
+        argv = chess_video.media_argv("ffmpeg", ["-nostdin", "-v", "error", "-y", "-ss", f"{at:.2f}"], path,
+                                      ["-frames:v", "1", "-vf", f"scale='min({PICTURE_SIDE},iw)':-2", target])
+        _out, ok = core.read_bounded_output(argv, max_bytes=4096, timeout=30)
         if ok and Path(target).is_file():
             frames.append(target)
     return frames
@@ -519,7 +608,7 @@ class LocalTab(GpuGuard):
         box.append(row)
         self.local_prompt = self.prompt_view(LOCAL_PROMPT, 60)
         box.append(self.local_prompt)
-        self.local_ask_button = self.small_button(_("Ask"), self.local_ask)
+        self.local_ask_button = self.action_button(_("Ask"), self.local_ask)
         box.append(self.local_ask_button)
         self.local_result = Gtk.Box(orientation=Gtk.Orientation.VERTICAL, spacing=ai_core.GAP)
         box.append(self.local_result)
@@ -545,6 +634,7 @@ class LocalTab(GpuGuard):
             self.local_model.set_model(Gtk.StringList.new(labels or [_("No local LLM server is running")]))
             self.local_model_b.set_model(Gtk.StringList.new([_("no second model")] + labels))
             self.local_ask_button.set_sensitive(bool(self.local_choices))   # the boxes stay readable
+            self.contestants_changed()
             if notes:
                 self.toast(" · ".join(notes))
             return False

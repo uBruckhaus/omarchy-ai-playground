@@ -7,7 +7,8 @@ agent takes pictures (each checked with its --help, Claude's also with a run, 20
 
 - claude: the question as stream-json on stdin, the pictures in it as base64 image blocks; its
   json answer carries tokens and cost (asked as json without pictures too);
-- codex: `-i <file>` per picture, before the question;
+- codex: `-i <file>` per picture, then `-`: the question on stdin (claude's too, without pictures:
+  a question in argv is visible to other local accounts while the agent runs);
 - pi: `@<file>` per picture, before the question;
 - the others take none (they are left out of the Vision tab).
 
@@ -35,6 +36,9 @@ IMAGE_TYPES = {".png": "image/png", ".jpg": "image/jpeg", ".jpeg": "image/jpeg",
                ".gif": "image/gif"}
 IMAGE_WAYS = {"claude": "stdin", "codex": "-i", "pi": "@"}
 JSON_ANSWER = {"claude"}         # asked with --output-format json: the text with tokens and cost
+# The question on stdin, not as an argument: an argument is visible to other local accounts in
+# /proc/<pid>/cmdline while the agent runs (claude -p reads stdin without one, codex exec with "-").
+STDIN_PROMPT = {"claude": None, "codex": "-"}
 
 
 @dataclass
@@ -97,6 +101,12 @@ def build(command: str, prompt: str, images: list, folder: str, level: str = che
     elif way == "@":
         argv = argv[:at] + ["@" + p for p in images] + argv[at:]
         at += len(images)
+    if command in STDIN_PROMPT:
+        if STDIN_PROMPT[command] is None:
+            del argv[at]
+        else:
+            argv[at] = STDIN_PROMPT[command]
+        return argv, prompt.encode()
     argv[at] = prompt
     return argv, None
 

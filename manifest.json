@@ -2,10 +2,10 @@
   "schemaVersion": 1,
   "id": "ubruckhaus.ai-playground",
   "name": "AI Playground",
-  "version": "0.1.0",
+  "version": "0.2.0",
   "author": "Uwe Bruckhaus",
   "license": "MIT",
-  "description": "Try out the AI agents on your computer, a test per tab: play chess against Claude Code, Codex, Hermes or Pi (or let two agents play each other), compare speed and cost, judge two answers blind, test vision with a picture, screenshot or video frames, and ask your local LLMs with tokens per second. Goes with AI Agents Map. 8 languages.",
+  "description": "Try out the AI agents on your computer, a test per tab: play chess against Claude Code, Codex, Hermes or Pi (or replay a game read from a video), compare speed and cost, judge two answers blind, test vision with a picture, make pictures from text on your own GPU (stable-diffusion.cpp, nothing leaves the computer) and ask your local LLMs with tokens per second. Goes with AI Agents Map. 8 languages.",
   "kinds": [
     "bar-widget"
   ],

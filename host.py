@@ -47,15 +47,18 @@ class Host:
         return scroller
 
     def group_card(self, box, key: str, title: str, icon: str = "", summary: str = "", badges=(),
-                   named_by_addon: bool = False, default_open: bool = False) -> Gtk.Box:
+                   named_by_addon: bool = False, default_open: bool = False,
+                   action: Gtk.Widget | None = None) -> Gtk.Box:
         """A card that folds, as AI Agents Map's (its heading opens and closes it; the summary shows
-        while it is folded). Returns the box to fill."""
+        while it is folded); `action`: a button at the right of its heading. Returns the box to fill."""
         card = Gtk.Box(orientation=Gtk.Orientation.VERTICAL)
         card.add_css_class("am-help-card")
         card.add_css_class("am-group-card")
         head = Gtk.Box(spacing=8)
         chevron = Gtk.Image.new_from_icon_name("pan-down-symbolic" if default_open else "pan-end-symbolic")
         head.append(chevron)
+        if icon:
+            head.append(Gtk.Image.new_from_icon_name(icon))
         heading = Gtk.Label(label=title.upper(), xalign=0)
         heading.add_css_class("am-setting-heading")
         head.append(heading)
@@ -65,6 +68,9 @@ class Host:
         head.append(line)
         filler = Gtk.Box(hexpand=True, visible=default_open)
         head.append(filler)
+        if action is not None:
+            action.set_valign(Gtk.Align.CENTER)
+            head.append(action)
         head.set_cursor_from_name("pointer")
         card.append(head)
         content = Gtk.Box(orientation=Gtk.Orientation.VERTICAL, spacing=ai_core.GAP, margin_top=ai_core.GAP,
@@ -87,6 +93,12 @@ class Host:
         content.group_card = card
         return content
 
+    @staticmethod
+    def boxed_list() -> Gtk.ListBox:
+        listbox = Gtk.ListBox(selection_mode=Gtk.SelectionMode.NONE)
+        listbox.add_css_class("boxed-list")
+        return listbox
+
     # --- pieces of the tabs -----------------------------------------------------------------------
 
     @staticmethod
@@ -99,9 +111,30 @@ class Host:
         box.append(hint)
 
     @staticmethod
+    def icon_button(icon: str, on_click, tip: str) -> Gtk.Button:
+        """A small button with a symbol only; what it does in its tooltip."""
+        button = Gtk.Button.new_from_icon_name(icon)
+        button.add_css_class("am-small-btn")
+        button.set_valign(Gtk.Align.CENTER)
+        button.set_tooltip_text(tip)
+        button.connect("clicked", lambda *_a: on_click())
+        return button
+
+    @staticmethod
     def small_button(label: str, on_click, tip: str = "") -> Gtk.Button:
         button = Gtk.Button(label=label, halign=Gtk.Align.START)
         button.add_css_class("am-small-btn")
+        if tip:
+            button.set_tooltip_text(tip)
+        button.connect("clicked", lambda *_a: on_click())
+        return button
+
+    @staticmethod
+    def action_button(label: str, on_click, tip: str = "") -> Gtk.Button:
+        """The tab's main button (Ask): large, in the accent colour."""
+        button = Gtk.Button(label=label, halign=Gtk.Align.START)
+        button.add_css_class("am-action-btn")
+        button.add_css_class("am-primary")
         if tip:
             button.set_tooltip_text(tip)
         button.connect("clicked", lambda *_a: on_click())

@@ -28,9 +28,9 @@ class AskTest(unittest.TestCase):
     def test_claude_answers_as_json_and_takes_pictures_on_stdin(self):
         argv, stdin = agent_run.build("claude", "Hello?", [], "/tmp/x")
         self.assertEqual(argv[0], "claude")
-        self.assertEqual(argv[-1], "Hello?")
+        self.assertNotIn("Hello?", argv)                      # on stdin: argv is visible to other accounts
+        self.assertEqual(stdin, b"Hello?")
         self.assertIn("--output-format", argv)
-        self.assertIsNone(stdin)
         with tempfile.TemporaryDirectory() as folder:
             argv, stdin = agent_run.build("claude", "What is it?", [png(folder)], folder)
         self.assertNotIn("What is it?", argv)                 # the question goes on stdin
@@ -40,8 +40,9 @@ class AskTest(unittest.TestCase):
         self.assertEqual(kinds, ["image", "text"])
 
     def test_codex_and_pi_get_pictures_before_the_question(self):
-        argv, _stdin = agent_run.build("codex", "Q", ["/f/picture-1.png", "/f/picture-2.png"], "/f")
-        self.assertEqual(argv[-5:], ["-i", "/f/picture-1.png", "-i", "/f/picture-2.png", "Q"])
+        argv, stdin = agent_run.build("codex", "Q", ["/f/picture-1.png", "/f/picture-2.png"], "/f")
+        self.assertEqual(argv[-5:], ["-i", "/f/picture-1.png", "-i", "/f/picture-2.png", "-"])
+        self.assertEqual(stdin, b"Q")
         argv, _stdin = agent_run.build("pi", "Q", ["/f/picture-1.png"], "/f")
         self.assertEqual(argv[-2:], ["@/f/picture-1.png", "Q"])
 
@@ -159,9 +160,10 @@ class ArgsTest(unittest.TestCase):
     def test_agent_and_test(self):
         import ai_playground
         self.assertEqual(ai_playground.parse_args(["--agent", "claude", "--test=chess"]),
-                         {"agent": "claude", "test": "chess"})
+                         {"agent": "claude", "test": "chess", "toggle": False})
         self.assertEqual(ai_playground.parse_args(["--agent", "rm -rf", "--test", "nope"]),
-                         {"agent": "", "test": ""})
+                         {"agent": "", "test": "", "toggle": False})
+        self.assertTrue(ai_playground.parse_args(["--toggle"])["toggle"])
 
 
 class PackagingTest(unittest.TestCase):
@@ -180,9 +182,11 @@ class PackagingTest(unittest.TestCase):
         ids = set()
         for source in HERE.glob("*.py"):              # every _("…") and N_("…"), joined lines too
             for node in ast.walk(ast.parse(source.read_text())):
-                if isinstance(node, ast.Call) and getattr(node.func, "id", "") in ("_", "N_") and node.args \
-                        and isinstance(node.args[0], ast.Constant) and isinstance(node.args[0].value, str):
-                    ids.add(node.args[0].value)
+                if isinstance(node, ast.Call) and getattr(node.func, "id", "") in ("_", "N_", "ngettext") \
+                        and node.args and isinstance(node.args[0], ast.Constant) \
+                        and isinstance(node.args[0].value, str):
+                    plural = node.func.id == "ngettext"
+                    ids.add((i18n.PLURAL_PREFIX if plural else "") + node.args[0].value)
         for code in ("de", "es", "fr", "it", "nl", "pl", "pt"):
             missing = ids - set(i18n.STRINGS[code])
             self.assertFalse(missing, (code, missing))

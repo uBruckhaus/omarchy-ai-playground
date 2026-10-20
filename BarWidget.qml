@@ -3,8 +3,8 @@ import Quickshell
 import qs.Commons
 import qs.Ui
 
-// The bar icon: starts AI Playground, or brings its window to the front (it is a normal app
-// window; the app itself keeps one instance).
+// The bar icon toggles AI Playground: closes it when it is the window in front, else starts it or
+// brings it to the front (a normal app window; the app itself keeps one instance).
 BarWidget {
   id: root
 
@@ -24,7 +24,7 @@ BarWidget {
 
     onPressed: function(mouseButton) {
       if (!root.bar) return
-      Quickshell.execDetached([root.launcherPath])
+      Quickshell.execDetached([root.launcherPath, "--toggle"])
     }
   }
 }
