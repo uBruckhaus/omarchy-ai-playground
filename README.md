@@ -1,9 +1,12 @@
 # AI Playground
 
-Try out the AI agents on your computer, one test per tab: play chess against Claude Code, Codex,
-Hermes or Pi (or let two of them play each other), compare their speed and cost, judge two answers
-blind, test what they see in a picture, make pictures from a text on your own graphics card, and ask
-your local LLMs with their tokens per second. It goes with
+Try out the AI agents on your computer, one test per tab: see at a glance what an agent and its
+model can do, play chess against Claude Code, Codex, Hermes or Pi (or let two of them play each
+other), compare their speed and cost, judge two answers blind, test what they see in a picture, make
+pictures from a text on your own graphics card, and ask your local LLMs with their tokens per second.
+
+**For now AI Playground works with four agents: Claude Code, Codex, Hermes and Pi.** Other agents
+(OpenCode, Gemini CLI, …) follow in later versions. It goes with
 [AI Agents Map](https://github.com/uBruckhaus/omarchy-ai-agents-map), which shows and changes how the
 agents are set up; AI Playground only asks them. It works on its own: AI Agents Map is not needed
 and nothing of it is run. When it is installed, the models folder you set there is also searched
@@ -22,13 +25,19 @@ when it is already the window in front. It is a normal app window: Hyprland tile
 Alt+Tab and workspaces work, and closing the window quits it.
 
 Requires Python with PyGObject, GTK4 and libadwaita in an Omarchy/Hyprland session; all come with a
-standard Omarchy install. The tests use the agents you have installed and signed in to (Claude Code,
-Codex, Hermes, Pi, OpenCode, …); AI Playground installs none of them. Optional tools, each only for
+standard Omarchy install. The tests use the agents you have installed and signed in to (for now Claude
+Code, Codex, Hermes and Pi); AI Playground installs none of them. Optional tools, each only for
 the feature named: `yt-dlp`, `ffmpeg` and `ffprobe` (reading a chess game from a video), `grim`
 (Screenshot on the Vision tab), `curl` (setting up Generate).
 
 ## The tabs
 
+- **Analyze**: pick an agent and one of its models (its own, or another one it lists, local models
+  included). One card per capability (text, pictures, chess videos, thinking time, chess, how much it
+  keeps in mind, making pictures) with a big mark at the end of its heading: green ✓ can, red ✗
+  cannot, yellow ! only slowly, ? not stated. A few short test questions are asked (a small sum, a
+  red test square, one opening move); the rest is read from the agent's own settings and model lists
+  (`pi --list-models`, Codex's `models_cache.json`). Changing the agent or model clears the cards.
 - **Chess**: play against an agent, or let two agents (or two local models) play each other, each
   with its own strength. The board checks every move; an agent that answers with an illegal move is
   asked again. Games can be saved, replayed move by move beneath the board, renamed and saved as PGN.
@@ -53,7 +62,7 @@ the feature named: `yt-dlp`, `ffmpeg` and `ffprobe` (reading a chess game from a
   with a second model. When two local models would answer at once and might not fit in the graphics
   card's memory together, you are asked first.
 
-Ctrl+1 … Ctrl+6 switch tabs; Ctrl+, opens the settings (language, text size in the choice boxes,
+Ctrl+1 … Ctrl+7 switch tabs; Ctrl+, opens the settings (language, text size in the choice boxes,
 whether several local models may run at once). AI Playground speaks English, German, French,
 Spanish, Italian, Portuguese, Dutch and Polish.
 
@@ -102,6 +111,23 @@ question. The agents run without tools; Codex's read-only sandbox has no network
     still running. `sd-cli` is started as an argv list with the prompt as one argument; its output is
     read with a size limit and a 15-minute deadline. Pictures stay in a private temporary folder until
     the app closes.
+- **Local models and pictures** (Analyze, and reading a chess video with an agent on a local
+  model), only after a click on **Analyze** or **Read**:
+  - a llama.cpp model whose section in `~/.config/llama.cpp/models.ini` has no vision file gets an
+    `mmproj = …` line for one already beside the model's file — only a plain file of your own, in a
+    folder only you can write to. Without one, the model's Hugging Face repository is asked for its
+    vision file, and **Download the vision file** (size shown) fetches it beside the model into an
+    exclusive `.part` file, checked against its size and the SHA-256 Hugging Face lists, never without
+    that click.
+  - Pi's entry for that local model in `~/.pi/agent/models.json` gets `"input": ["text", "image"]`,
+    and the thinking switch where the model's chat template has one (so it can be asked not to think).
+  - A copy of every file is kept first in `~/.local/state/ai-playground/backups/<time>/`; files are
+    replaced atomically and keep their permissions.
+  - The local LLM's own user service (`llama-server`, `ollama`, …, only units that exist) is started
+    with `systemctl --user start` while a test or a video read runs, kept up with a light request
+    every 2 s, and stopped again afterwards if AI Playground started it and nothing else is connected.
+    After a new vision line llama.cpp is restarted (`systemctl --user restart llama-server.service`)
+    only when no program is connected to it; otherwise it reads the line the next time it starts.
 - **ⓘ Information** opens fixed `https://plugins.omarchy.org/plugin.html?id=…` addresses in your
   browser on a click.
 
@@ -127,6 +153,8 @@ rm -rf ~/.config/omarchy/ai-playground ~/.local/share/ai-playground
 | `ai_playground.py`, `host.py` | The GTK4 app window, its tabs, settings and information pages |
 | `chess_page.py`, `chess_rules.py`, `chess_agent.py` | The chess tab: board, legal moves, asking an agent for a move |
 | `chess_import.py`, `chess_video.py` | Saved games, replay, PGN; reading a game from a video |
+| `analyze_tab.py`, `analyze.py`, `online_models.py` | Analyze: the tab; its tests and the facts read from the agents' settings |
+| `frame_check.py`, `local_hold.py` | Setting a local model up for pictures; keeping a local LLM up during a job |
 | `tabs.py`, `agent_run.py`, `gpu_check.py` | Speed and cost, Head to head, Vision, Local LLMs; asking an agent once; GPU memory check |
 | `generate_tab.py`, `picture_gen.py` | Generate: the tab; setting up stable-diffusion.cpp and the model, making a picture |
 | `local_llm.py`, `loopback.py`, `netfetch.py` | Local LLM servers of your own account; bounded local HTTP |

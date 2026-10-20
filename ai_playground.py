@@ -48,11 +48,12 @@ from host import Host, askable_agents  # noqa: E402
 from i18n import _, N_  # noqa: E402
 from palette import ThemePalette  # noqa: E402
 from tabs import DuelTab, LocalTab, SpeedTab, VisionTab  # noqa: E402
+from analyze_tab import AnalyzeTab  # noqa: E402
 from text_guard import TextGuard  # noqa: E402
 from generate_tab import GenerateTab  # noqa: E402
 from theme_css import ThemeCss  # noqa: E402
 
-TABS = (("chess", N_("Chess")), ("speed", N_("Speed and cost")), ("duel", N_("Head to head")),
+TABS = (("analyze", N_("Analyze")), ("chess", N_("Chess")), ("speed", N_("Speed and cost")), ("duel", N_("Head to head")),
         ("vision", N_("Vision")), ("generate", N_("Generate")), ("local", N_("Local LLMs")))
 ICON = "\U000F0297"                    # Nerd Font gamepad: the header and the bar icon
 OWN_ID = "ubruckhaus.ai-playground"
@@ -78,7 +79,7 @@ def parse_args(argv: list) -> dict:
     return wanted
 
 
-class Playground(Adw.Application, TextGuard, Host, ThemeCss, ChessPage, ChessImport, SpeedTab, DuelTab, VisionTab, GenerateTab, LocalTab):
+class Playground(Adw.Application, TextGuard, Host, ThemeCss, AnalyzeTab, ChessPage, ChessImport, SpeedTab, DuelTab, VisionTab, GenerateTab, LocalTab):
     def __init__(self):
         super().__init__(application_id=desktop.app_id(), flags=Gio.ApplicationFlags.HANDLES_COMMAND_LINE)
         self.window = None
@@ -112,6 +113,8 @@ class Playground(Adw.Application, TextGuard, Host, ThemeCss, ChessPage, ChessImp
         agent = next((a for a in self.ready_agents if a.command == wanted["agent"]), None)
         if wanted["agent"] and agent is None:
             self.toast(_("{0} is not installed and set up here.").format(wanted["agent"]))
+        if agent is not None and getattr(self, "an_agent", None) is not None:
+            self.an_agent.set_selected(self.ready_agents.index(agent))     # Analyze has it ready too
         test = wanted["test"] or ("chess" if agent is not None else "")
         if test == "chess" and agent is not None and self.can_play_chess(agent):
             commands = [a.command for a in self.chess_opponents]
@@ -164,6 +167,7 @@ class Playground(Adw.Application, TextGuard, Host, ThemeCss, ChessPage, ChessImp
 
         self.stack = Gtk.Stack(transition_type=Gtk.StackTransitionType.CROSSFADE, transition_duration=120,
                                vexpand=True)
+        self.stack.add_named(self.build_analyze_tab(), "analyze")
         self.stack.add_named(self.build_chess_tab(), "chess")
         self.stack.add_named(self.build_speed_tab(), "speed")
         self.stack.add_named(self.build_duel_tab(), "duel")
@@ -182,7 +186,7 @@ class Playground(Adw.Application, TextGuard, Host, ThemeCss, ChessPage, ChessImp
         self.apply_theme_css()
         self.watch_theme()
         saved = ai_core.setting("playground_tab")
-        self.show_page(saved if saved in {k for k, _l in TABS} else "chess")
+        self.show_page(saved if saved in {k for k, _l in TABS} else "analyze")
 
     def build_header(self) -> Gtk.Widget:
         header = Gtk.Box(spacing=8)

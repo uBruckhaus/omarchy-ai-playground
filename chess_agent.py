@@ -10,6 +10,7 @@ game so far, the move just played and the legal answers; the move is taken from 
 from __future__ import annotations
 
 import os
+import re
 import shutil
 import tempfile
 from dataclasses import dataclass
@@ -112,13 +113,24 @@ def comment_of(answer: str, written: str) -> str:
     return text[:MAX_COMMENT] + ("…" if len(text) > MAX_COMMENT else "")
 
 
-def run_argv(command: str, text: str, level: str = DEFAULT_THINKING) -> list:
+# How each agent is asked with another model than its own for one run (its --help, 2026-10-20).
+MODEL_FLAG = {"claude": "--model", "codex": "-m", "pi": "--model"}
+MODEL_NAME = re.compile(r"[A-Za-z0-9][A-Za-z0-9._:/@+-]{0,159}")
+
+
+def run_argv(command: str, text: str, level: str = DEFAULT_THINKING, effort: list | None = None,
+             model: str = "") -> list:
     """The adapter's ask command with the prompt in place, and its options for the thinking level
-    (ask.effort) where it says "{effort}", else just before the prompt."""
+    (ask.effort) where it says "{effort}", else just before the prompt; `effort` replaces them.
+    model: that model for this run (MODEL_FLAG; "" the agent's own)."""
     harness = harnesses.get(command)
     if harness is None or not harness.ask:
         return []
-    effort = list(dict(harness.effort).get(level, ()))
+    effort = list(dict(harness.effort).get(level, ())) if effort is None else list(effort)
+    if model:
+        if command not in MODEL_FLAG or not MODEL_NAME.fullmatch(model):
+            return []
+        effort = [MODEL_FLAG[command], model] + effort
     placed = "{effort}" in harness.ask
     out = []
     for a in harness.ask:

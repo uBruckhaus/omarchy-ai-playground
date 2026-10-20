@@ -91,6 +91,7 @@ class Host:
         head.add_controller(click)
         content.group_summary = line
         content.group_card = card
+        content.group_heading = heading
         return content
 
     @staticmethod
