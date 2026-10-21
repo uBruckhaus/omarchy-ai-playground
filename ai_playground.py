@@ -293,13 +293,19 @@ class Playground(Adw.Application, TextGuard, Host, ThemeCss, AnalyzeTab, ChessPa
         if ctrl and keyval == Gdk.KEY_comma:
             self.show_page("settings")
             return True
+        # A page with a Back button: Esc and Backspace go back, unless a field on it is being edited.
         if self.page_name() in ("settings", "info", "games") and keyval in (Gdk.KEY_Escape, Gdk.KEY_BackSpace) \
-                and not (self.page_name() == "games" and keyval == Gdk.KEY_BackSpace
-                         and (self.chess_games_search.has_focus()
-                              or self.chess_games_search.get_delegate().has_focus())):     # typing in the search
+                and not self.editing():
             self.show_page(getattr(self, "last_tab", "chess"))
             return True
         return False
+
+    def editing(self) -> bool:
+        """A text field (an entry, a search field, a number field, a text box) has the keyboard."""
+        focus = self.window.get_focus() if self.window is not None else None
+        if isinstance(focus, Gtk.TextView):
+            return focus.get_editable()
+        return isinstance(focus, Gtk.Editable) and focus.get_editable()
 
     # --- the chess tab: an opponent above the shared chess page --------------------------------------
 
