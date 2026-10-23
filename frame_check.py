@@ -168,18 +168,34 @@ def local_mmproj(model_path: Path) -> Path | None:
 
 
 def ini_with_mmproj(text: str, section: str, mmproj: Path) -> str | None:
-    """models.ini with an mmproj line in this section (None when it has no such section)."""
-    match = re.search(rf"^\[{re.escape(section)}\][ \t]*\n", text, re.MULTILINE | re.IGNORECASE)
-    if match is None or not SAFE_PATH.fullmatch(str(mmproj)):
+    """models.ini with an mmproj line in each section of this name that has none (None when it has
+    no such section): a name written twice gets it twice, so whichever llama.cpp reads sees it."""
+    if not SAFE_PATH.fullmatch(str(mmproj)):
         return None
-    return text[:match.end()] + f"mmproj = {mmproj}\n" + text[match.end():]
+    wanted = section.strip().lower()
+    headers = list(local_hold.SECTION_RE.finditer(text))
+    places = []
+    for i, header in enumerate(headers):
+        if header.group(1).strip().lower() != wanted:
+            continue
+        end = headers[i + 1].start() if i + 1 < len(headers) else len(text)
+        if not local_hold.has_mmproj(text[header.end():end]):
+            places.append(header.end())
+    if not places and not any(h.group(1).strip().lower() == wanted for h in headers):
+        return None
+    newline = "\r\n" if "\r\n" in text else "\n"
+    for at in reversed(places):                  # from the end: earlier places keep their offsets
+        line_end = at + (1 if text[at:at + 1] == "\n" else 0)
+        prefix = "" if line_end > at else newline
+        text = text[:line_end] + prefix + f"mmproj = {mmproj}{newline}" + text[line_end:]
+    return text
 
 
 def section_of(model: str, ini: Path = local_hold.MODELS_INI) -> str | None:
     text = _read(ini, local_hold.MAX_INI)
-    for name in re.findall(r"^\[([^\]\n]{1,120})\]", text, re.MULTILINE):
-        if name.strip().lower() == model.lower().removesuffix(".gguf"):
-            return name.strip()
+    for header in local_hold.SECTION_RE.finditer(text):
+        if header.group(1).strip().lower() == model.lower().removesuffix(".gguf"):
+            return header.group(1).strip()
     return None
 
 
@@ -241,27 +257,65 @@ def hf_mmproj(repo: str, folder: Path, section: str, fetch=None) -> Download | N
     return Download(repo, path, size, sha, target, section)
 
 
+_RUNNING: set = set()            # curl processes started here (stop_all ends them)
+
+
+def stop_all() -> None:
+    """End every download still running (the app is closing: none outlives it)."""
+    for proc in list(_RUNNING):
+        if proc.poll() is None:
+            proc.kill()
+
+
+def _open_staging(part: Path) -> int:
+    """The staging file, opened exclusively and locked. One left behind by a download that was cut
+    off (the app was killed) is this account's own and not locked: it is emptied and used again."""
+    import fcntl
+    import stat
+    flags = os.O_RDWR | os.O_NOFOLLOW | os.O_CLOEXEC
+    try:
+        fd = os.open(part, flags | os.O_CREAT | os.O_EXCL, 0o644)
+    except FileExistsError:
+        fd = os.open(part, flags)                   # a link there fails (ELOOP)
+        st = os.fstat(fd)
+        if not stat.S_ISREG(st.st_mode) or st.st_uid != os.getuid() or st.st_nlink != 1:
+            os.close(fd)
+            raise OSError(_("{0} is not this account's own download; remove it and try again").format(part.name))
+    try:
+        fcntl.flock(fd, fcntl.LOCK_EX | fcntl.LOCK_NB)
+    except BlockingIOError:
+        os.close(fd)
+        raise OSError(_("it is being downloaded already")) from None
+    os.ftruncate(fd, 0)
+    return fd
+
+
 def fetch_mmproj(d: Download, progress=None, cancelled=lambda: False) -> str:
     """Download it beside the model (curl into an exclusive staging file, size bound, SHA-256
     checked before it gets its name), then into models.ini. What to say ("" when done)."""
     import hashlib
     part = d.target.with_name(d.target.name + ".part")
     try:
-        fd = os.open(part, os.O_WRONLY | os.O_CREAT | os.O_EXCL | os.O_NOFOLLOW, 0o644)
+        fd = _open_staging(part)
     except OSError as error:
         return str(error)
     try:
         url = f"{HF}/{d.repo}/resolve/main/{quote(d.path)}"
-        curl = subprocess.Popen(["curl", "-fsSL", "--proto", "=https", "--max-filesize", str(d.size), "--", url],
+        # --speed-limit/--speed-time: a transfer that stalls (under 1 KB/s for two minutes) ends.
+        curl = subprocess.Popen(["curl", "-fsSL", "--proto", "=https", "--max-filesize", str(d.size),
+                                 "--speed-limit", "1024", "--speed-time", "120", "--", url],
                                 stdin=subprocess.DEVNULL, stdout=fd, stderr=subprocess.DEVNULL)
+        _RUNNING.add(curl)
         while curl.poll() is None:
             if cancelled():
                 curl.kill()
                 curl.wait()
+                _RUNNING.discard(curl)
                 raise OSError(_("cancelled"))
             if progress:
                 progress(min(1.0, os.fstat(fd).st_size / d.size))
             time.sleep(0.5)
+        _RUNNING.discard(curl)
         if curl.returncode or os.fstat(fd).st_size != d.size:
             raise OSError(_("the download stopped"))
         digest = hashlib.sha256()

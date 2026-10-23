@@ -1,4 +1,10 @@
 {
+ "AI Playground restarts in the new language.": "O AI Playground reinicia no novo idioma.",
+ "Which local model an agent uses comes from its own settings, as AI Playground reads them.": "O modelo local que um agente usa vem das suas próprias definições, tal como o AI Playground as lê.",
+ "Vision: only agents that take pictures and run without tools (Claude Code, Pi). Local LLMs: no agent needed.": "Visão: só agentes que aceitam imagens e correm sem ferramentas (Claude Code, Pi). LLM locais: nenhum agente necessário.",
+ "A picture, a screenshot or frames of a video for the agents that can see and run without tools (Claude Code, Pi): text in a picture cannot make them read your files. Pictures are scaled down and saved again first, so no photo metadata goes out.": "Uma imagem, uma captura de ecrã ou fotogramas de um vídeo para os agentes que veem e correm sem ferramentas (Claude Code, Pi): um texto numa imagem não os pode levar a ler os seus ficheiros. As imagens são reduzidas e guardadas de novo antes, por isso não sai nenhum metadado da foto.",
+ "it is being downloaded already": "já está a ser transferido",
+ "{0} is not this account's own download; remove it and try again": "{0} não é uma transferência desta conta; remova-o e tente de novo",
  "\u0004+ 1 folder with unused models": [
   "+ 1 pasta com modelos não usados",
   "+ {0} pastas com modelos não usados"

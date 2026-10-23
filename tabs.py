@@ -404,10 +404,13 @@ class VisionTab(AgentChecks):
     def build_vision_tab(self) -> Gtk.Widget:
         box = Gtk.Box(orientation=Gtk.Orientation.VERTICAL, spacing=ai_core.GAP)
         self.tab_intro(box, _("Vision"),
-                       _("A picture, a screenshot or frames of a video for the agents that can see "
-                         "(Claude Code, Codex, Pi). Pictures are scaled down and saved again first, so no "
-                         "photo metadata goes out."))
-        self.vision_agents = [c for c in self.contestants(with_models=False) if agent_run.takes_images(c.command)]
+                       _("A picture, a screenshot or frames of a video for the agents that can see and run "
+                         "without tools (Claude Code, Pi): text in a picture cannot make them read your files. "
+                         "Pictures are scaled down and saved again first, so no photo metadata goes out."))
+        # A picture may come from the web (a screenshot of a page, a downloaded image) and carry planted
+        # words: only agents without tools see it (agent_run.NO_TOOLS; Codex can read files, so not it).
+        self.vision_agents = [c for c in self.contestants(with_models=False)
+                              if agent_run.takes_images(c.command) and agent_run.reads_untrusted(c.command)]
         row = Gtk.Box(spacing=8)
         row.append(self.small_button(_("Picture…"), self.vision_pick_picture))
         if shutil.which("grim"):

@@ -7,9 +7,10 @@ agent takes pictures (each checked with its --help, Claude's also with a run, 20
 
 - claude: the question as stream-json on stdin, the pictures in it as base64 image blocks; its
   json answer carries tokens and cost (asked as json without pictures too);
-- codex: `-i <file>` per picture, then `-`: the question on stdin (claude's too, without pictures:
-  a question in argv is visible to other local accounts while the agent runs);
-- pi: `@<file>` per picture, before the question;
+- codex: `-i <file>` per picture, then `-`: the question on stdin (claude's and pi's too: a
+  question in argv is visible to other local accounts while the agent runs, and pi would read one
+  that starts with "-" as an option, one with "@" as a file);
+- pi: `@<file>` per picture (it puts what stdin brings before them);
 - think=False (a chess frame read by a local model): agents in NO_THINKING are asked not to think
   (a local model thought ~1000 tokens for a one-line answer); the others at the level asked;
 - the others take none (they are left out of the Vision tab).
@@ -40,8 +41,9 @@ IMAGE_WAYS = {"claude": "stdin", "codex": "-i", "pi": "@"}
 NO_THINKING = {"pi": ["--thinking", "off"]}       # options instead of the level's (pi --help, 2026-10-20)
 JSON_ANSWER = {"claude"}         # asked with --output-format json: the text with tokens and cost
 # The question on stdin, not as an argument: an argument is visible to other local accounts in
-# /proc/<pid>/cmdline while the agent runs (claude -p reads stdin without one, codex exec with "-").
-STDIN_PROMPT = {"claude": None, "codex": "-"}
+# /proc/<pid>/cmdline while the agent runs (claude -p and pi -p read stdin without one, codex exec
+# with "-"). Hermes takes its question only as the value of -z.
+STDIN_PROMPT = {"claude": None, "codex": "-", "pi": None}
 
 
 @dataclass

@@ -40,7 +40,9 @@ from gi.repository import Adw, Gdk, Gio, GLib, Gtk  # noqa: E402
 
 import ai_core  # noqa: E402
 import corners  # noqa: E402
+import frame_check  # noqa: E402
 import i18n  # noqa: E402
+import local_hold  # noqa: E402
 import more_plugins  # noqa: E402
 from chess_import import ChessImport  # noqa: E402
 from chess_page import ChessPage  # noqa: E402
@@ -244,6 +246,11 @@ class Playground(Adw.Application, TextGuard, Host, ThemeCss, AnalyzeTab, ChessPa
             self.save_setting(playground_tab=page)
         self.vision_cleanup()
         self.gen_cleanup()
+        # Nothing started here outlives the app: agents still answering, a vision file still
+        # downloading, a local LLM started for a job.
+        ai_core.stop_running()
+        frame_check.stop_all()
+        local_hold.stop_all()
         self.quit()
         return False
 
@@ -407,7 +414,7 @@ class Playground(Adw.Application, TextGuard, Host, ThemeCss, AnalyzeTab, ChessPa
         group = self.preference_group(body, _("General"))
         codes = ["auto"] + [code for code, _name in i18n.LANGUAGES]
         setting = i18n.language_setting()
-        self.combo_row(group, _("Language"), _("AI Agents Map restarts in the new language."),
+        self.combo_row(group, _("Language"), _("AI Playground restarts in the new language."),
                        [_("System ({0})").format(i18n.language_name(i18n.system_language()))]
                        + [name for _code, name in i18n.LANGUAGES],
                        codes.index(setting) if setting in codes else 0, lambda i: self.set_language(codes[i]))
@@ -437,7 +444,8 @@ class Playground(Adw.Application, TextGuard, Host, ThemeCss, AnalyzeTab, ChessPa
                 _("Speed and cost, Head to head: the models of the local LLM servers running here (see Local LLMs) "
                   "take part next to the agents, so your agent can meet a local model, or two local models each "
                   "other. The same one twice in Head to head keeps no score."),
-                _("Vision: only agents that take pictures (Claude Code, Codex, Pi). Local LLMs: no agent needed."),
+                _("Vision: only agents that take pictures and run without tools (Claude Code, Pi). Local LLMs: no agent "
+                  "needed."),
                 _("No agent offered: install one and sign in, or connect it to a local LLM (AI Agents Map does both). "
                   "An agent that is installed but not signed in is not offered, since it could not answer.")):
             line = self.answer_label(text)
@@ -453,7 +461,7 @@ class Playground(Adw.Application, TextGuard, Host, ThemeCss, AnalyzeTab, ChessPa
                   "nvidia-smi). A model that is loaded already needs nothing more. Any other model needs about its "
                   "file size plus a tenth, and half a GB for its context. The size comes from Ollama, or from the "
                   ".gguf file in the usual model folders and the models folder set in AI Agents Map."),
-                _("Which local model an agent uses comes from its own settings, as AI Agents Map reads them."),
+                _("Which local model an agent uses comes from its own settings, as AI Playground reads them."),
                 _("When they fit, the test simply starts. When they do not, or when a size could not be found, you "
                   "choose: One after the other (the next model is asked only when the one before has answered; "
                   "Ollama is asked to unload it first), Both at once, or Cancel. In chess the agents answer in "
@@ -482,7 +490,7 @@ class Playground(Adw.Application, TextGuard, Host, ThemeCss, AnalyzeTab, ChessPa
 
 def main():
     ai_core.drop_agent_session_vars()                 # started from an agent's terminal: no session inherited
-    i18n.set_name("AI Agents Map", desktop.app_name())
+    # No i18n.set_name: AI Agents Map in a text here is the companion app, never this one.
     app = Playground()
     return app.run(sys.argv)
 

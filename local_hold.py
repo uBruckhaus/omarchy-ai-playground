@@ -106,6 +106,15 @@ def start(server: str, wait: float = START_WAIT, clock=time.monotonic, sleep=tim
     return ""
 
 
+_HOLDS: set = set()          # the holds in use now (stop_all lets them go)
+
+
+def stop_all() -> None:
+    """Let every hold go (the app is closing: a server started here for a job is stopped too)."""
+    for hold in list(_HOLDS):
+        hold.release()
+
+
 class Hold:
     """with Hold(server) as hold: … — hold.error says why the server is not up ("" when it is)."""
 
@@ -115,22 +124,37 @@ class Hold:
         self.done = threading.Event()
         self.thread = None
         self.started = []            # [True]: started here, so stopped here too
+        self.released = threading.Lock()
 
     def __enter__(self):
+        _HOLDS.add(self)
         self.error = start(self.server, started=self.started)
-        if not self.error:
+        if self.done.is_set():                  # let go while it started (the app closed)
+            if self.started and not clients(self.port):
+                import runtime_ctl
+                runtime_ctl.stop(runtime(self.server))
+            self.error = self.error or "the app is closing"
+        elif not self.error:
             self.thread = threading.Thread(target=self.keep, daemon=True)
             self.thread.start()
         return self
 
     def __exit__(self, *_exc):
+        self.release()
+        return False
+
+    def release(self):
+        """Once: the held connection closes, and a server started here stops unless another program
+        is connected to it."""
+        if not self.released.acquire(blocking=False):
+            return
+        _HOLDS.discard(self)
         self.done.set()
         if self.thread is not None:
             self.thread.join(timeout=PING + 3)
         if self.started and not clients(self.port):
             import runtime_ctl
             runtime_ctl.stop(runtime(self.server))
-        return False
 
     def keep(self):
         path = READY.get(self.server, "/v1/models")
@@ -151,10 +175,23 @@ class Hold:
             connection.close()
 
 
+# A section header of llama.cpp's models.ini: [name], maybe with spaces after it.
+SECTION_RE = re.compile(r"^\[([^\]\n]{1,120})\][ \t]*\r?$", re.MULTILINE)
+
+
 def ini_sections(text: str) -> dict:
-    """{section name lowered: its body} of llama.cpp's models.ini."""
-    return {name.strip().lower(): body for name, body in
-            re.findall(r"^\[([^\]\n]{1,120})\]\n((?:(?!\[).*\n?)*)", text, re.MULTILINE)}
+    """{section name lowered: [its body, …]} of llama.cpp's models.ini. A name can have several
+    sections (llama-models-sync writes some twice): each one counts."""
+    found: dict = {}
+    headers = list(SECTION_RE.finditer(text))
+    for i, header in enumerate(headers):
+        end = headers[i + 1].start() if i + 1 < len(headers) else len(text)
+        found.setdefault(header.group(1).strip().lower(), []).append(text[header.end():end])
+    return found
+
+
+def has_mmproj(body: str) -> bool:
+    return bool(re.search(r"^\s*mmproj\s*=\s*\S", body, re.MULTILINE))
 
 
 def sees_pictures(server: str, model: str, ini: Path = MODELS_INI) -> bool | None:
@@ -167,10 +204,10 @@ def sees_pictures(server: str, model: str, ini: Path = MODELS_INI) -> bool | Non
                 text = handle.read(MAX_INI).decode("utf-8", "replace")
         except OSError:
             return None
-        body = ini_sections(text).get(name.lower().removesuffix(".gguf"))
-        if body is None:
+        bodies = ini_sections(text).get(name.lower().removesuffix(".gguf"))
+        if not bodies:
             return None
-        return bool(re.search(r"^\s*mmproj\s*=\s*\S", body, re.MULTILINE))
+        return all(has_mmproj(body) for body in bodies)
     if server == "ollama":
         reply = gpu_usage.http_json(port_of(server), "/api/show", "POST", {"model": name}, timeout=2)
         caps = reply.get("capabilities") if isinstance(reply, dict) else None

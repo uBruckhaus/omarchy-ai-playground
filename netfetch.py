@@ -1,4 +1,4 @@
-"""Every web request of AI Agents Map goes through here: curl, run through
+"""Every web request of AI Playground goes through here: curl, run through
 ai_core.read_bounded_output, so each answer is capped in size and in time
 (one deadline for connect, headers and body).
 

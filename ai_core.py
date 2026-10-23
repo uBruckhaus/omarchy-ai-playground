@@ -1,4 +1,4 @@
-"""AI Agents Map - settings and small helpers shared by the popup.
+"""AI Playground - settings and small helpers shared by its pages (core module, copied from AI Agents Map).
 
 Settings live in desktop.config_dir()/settings.json (~/.config/omarchy/ai-agents-map on Omarchy; private, written
 atomically, read with a size cap). Nothing here starts a network request.
@@ -122,6 +122,20 @@ def last_view(path: Path | None = None) -> str:
 
 # --- Hyprland -----------------------------------------------------------------
 
+_RUNNING: set = set()       # programs read_bounded_output runs now (stop_running ends them)
+
+
+def stop_running() -> None:
+    """End every program still running here, with its children (the app is closing: an agent asked
+    for an answer nobody will see would go on running, and costing, after it)."""
+    for proc in list(_RUNNING):
+        if proc.poll() is None:
+            try:
+                os.killpg(proc.pid, 9)
+            except OSError:
+                proc.kill()
+
+
 def read_bounded_output(argv: list[str], max_bytes: int = 64 * 1024, timeout: float = 5.0,
                         stdin: bytes | None = None, cwd: str | None = None, env: dict | None = None,
                         merge_stderr: bool = False) -> tuple[bytes, bool]:
@@ -135,6 +149,7 @@ def read_bounded_output(argv: list[str], max_bytes: int = 64 * 1024, timeout: fl
                                 cwd=cwd, env=env, start_new_session=True)
     except (OSError, ValueError):
         return b"", False
+    _RUNNING.add(proc)
     if stdin is not None:
         def feed():
             try:
@@ -171,6 +186,10 @@ def read_bounded_output(argv: list[str], max_bytes: int = 64 * 1024, timeout: fl
     except subprocess.TimeoutExpired:
         proc.kill()
         code = proc.wait()
+    finally:
+        _RUNNING.discard(proc)
+    if not thread.is_alive():
+        proc.stdout.close()
     return b"".join(chunks)[:max_bytes], code == 0 and not state["over"]
 
 

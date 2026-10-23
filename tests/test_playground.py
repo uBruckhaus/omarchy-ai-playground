@@ -43,13 +43,26 @@ class AskTest(unittest.TestCase):
         argv, stdin = agent_run.build("codex", "Q", ["/f/picture-1.png", "/f/picture-2.png"], "/f")
         self.assertEqual(argv[-5:], ["-i", "/f/picture-1.png", "-i", "/f/picture-2.png", "-"])
         self.assertEqual(stdin, b"Q")
-        argv, _stdin = agent_run.build("pi", "Q", ["/f/picture-1.png"], "/f")
-        self.assertEqual(argv[-2:], ["@/f/picture-1.png", "Q"])
+        argv, stdin = agent_run.build("pi", "Q", ["/f/picture-1.png"], "/f")
+        self.assertEqual(argv[-1], "@/f/picture-1.png")
+        self.assertEqual(stdin, b"Q")
+
+    def test_a_question_never_reaches_pis_argv(self):
+        """Not visible in /proc, and one starting with "-" or "@" is no option or file to pi."""
+        for question in ("--model x: hi", "@/etc/passwd", "plain"):
+            argv, stdin = agent_run.build("pi", question, [], "/f")
+            self.assertNotIn(question, argv)
+            self.assertEqual(stdin, question.encode())
+            self.assertIn("--no-mcp", argv)
 
     def test_who_takes_pictures(self):
         self.assertTrue(agent_run.takes_images("claude"))
         self.assertFalse(agent_run.takes_images("hermes"))
         self.assertFalse(agent_run.takes_images("no-such-agent"))
+        # The Vision tab: pictures may come from the web, so only agents without tools see them.
+        vision = [c for c in ("claude", "codex", "pi", "hermes")
+                  if agent_run.takes_images(c) and agent_run.reads_untrusted(c)]
+        self.assertEqual(vision, ["claude", "pi"])
 
     def test_claude_tokens_and_cost(self):
         out = json.dumps({"type": "result", "result": "A blue circle.", "total_cost_usd": 0.018,
@@ -185,6 +198,61 @@ class LocalHoldTest(unittest.TestCase):
             self.assertTrue(local_hold.sees_pictures("llamacpp", "eyes-12b", ini))
             self.assertFalse(local_hold.sees_pictures("llamacpp", "Blind-26B", ini))
             self.assertIsNone(local_hold.sees_pictures("llamacpp", "Other", ini))
+
+    def test_a_name_written_twice_in_models_ini_gets_the_vision_file_in_both(self):
+        """llama-models-sync writes some sections twice: reading and writing look at every one, so a
+        second check finds it done and adds nothing again (CRLF and spaces after ] too)."""
+        import frame_check
+        import local_hold
+        text = "[*]\r\nctx-size = 1\r\n[Qwen-27B] \r\nctx-size = 2\r\n[Other]\r\n[Qwen-27B]\r\nctx-size = 3\r\n"
+        new = frame_check.ini_with_mmproj(text, "qwen-27b", Path("/m/mmproj-q.gguf"))
+        self.assertEqual(new.count("mmproj = /m/mmproj-q.gguf\r\n"), 2)
+        self.assertNotIn("\n\n", new.replace("\r\n", "\n").replace("[*]\n", ""))
+        self.assertEqual(frame_check.ini_with_mmproj(new, "qwen-27b", Path("/m/mmproj-q.gguf")), new)
+        with tempfile.TemporaryDirectory() as folder:
+            ini = Path(folder, "models.ini")
+            ini.write_text(text.replace("ctx-size = 2", "mmproj = /m/a.gguf"))
+            self.assertFalse(local_hold.sees_pictures("llamacpp", "Qwen-27B", ini))   # the second has none
+            ini.write_text(new)
+            self.assertTrue(local_hold.sees_pictures("llamacpp", "Qwen-27B", ini))
+
+    def test_a_download_cut_off_before_is_started_again(self):
+        """A .part left behind (the app was killed) no longer blocks the vision file for good; one that
+        is being written now, a link, or another account's file is refused."""
+        import fcntl
+        import frame_check
+        with tempfile.TemporaryDirectory() as folder:
+            part = Path(folder, "mmproj.gguf.part")
+            part.write_bytes(b"old half")
+            fd = frame_check._open_staging(part)
+            self.assertEqual(os.fstat(fd).st_size, 0)
+            with self.assertRaises(OSError):
+                frame_check._open_staging(part)                  # locked: being downloaded now
+            os.close(fd)
+            link = Path(folder, "link.part")
+            link.symlink_to(Path(folder, "elsewhere"))
+            with self.assertRaises(OSError):
+                frame_check._open_staging(link)
+            self.assertFalse(Path(folder, "elsewhere").exists())
+            fd = frame_check._open_staging(Path(folder, "new.part"))
+            fcntl.flock(fd, fcntl.LOCK_UN)
+            os.close(fd)
+
+    def test_closing_the_app_ends_what_it_started(self):
+        import ai_core
+        import local_hold
+        out, ok = ai_core.read_bounded_output(["true"])
+        self.assertEqual(ai_core._RUNNING, set())               # finished runs are not kept
+        stopped = []
+        hold = local_hold.Hold("llamacpp")
+        hold.started = [True]
+        local_hold._HOLDS.add(hold)
+        with mock.patch.object(local_hold, "clients", return_value=0), \
+                mock.patch("runtime_ctl.stop", side_effect=lambda rt: stopped.append(rt.key)):
+            local_hold.stop_all()
+            local_hold.stop_all()                                 # once only
+        self.assertEqual(stopped, ["llamacpp"])
+        self.assertEqual(local_hold._HOLDS, set())
 
     def test_start_waits_until_the_server_answers(self):
         import local_hold

@@ -2,7 +2,7 @@
   "schemaVersion": 1,
   "id": "ubruckhaus.ai-playground",
   "name": "AI Playground",
-  "version": "0.3.1",
+  "version": "0.3.2",
   "author": "Uwe Bruckhaus",
   "license": "MIT",
   "description": "Try out the AI agents on your computer, a test per tab: Analyze shows what an agent and its model can do (green ✓, red ✗), play chess against it, compare speed and cost, judge two answers blind, test vision, make pictures on your own GPU and ask your local LLMs. For now: Claude Code, Codex, Hermes and Pi; other agents follow later. 8 languages.",

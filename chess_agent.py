@@ -151,7 +151,7 @@ def ask(command: str, text: str, pos: rules.Position, runner=None, level: str = 
     if not argv:
         return Reply(None, "", "", _("This agent cannot be asked for a move."))
     run = runner or ai_core.read_bounded_output
-    folder = tempfile.mkdtemp(prefix="asterism-chess-")      # private (0700), empty
+    folder = tempfile.mkdtemp(prefix="ai-playground-chess-")   # private (0700), empty
     try:
         out, ok = run(argv, max_bytes=MAX_ANSWER, timeout=seconds(level) + 15, cwd=folder,
                       env={**os.environ, "NO_COLOR": "1"})

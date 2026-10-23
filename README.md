@@ -48,8 +48,8 @@ the feature named: `yt-dlp`, `ffmpeg` and `ffprobe` (reading a chess game from a
   with time, tokens and cost where the agent reports them.
 - **Head to head**: one question to two agents or local models. You pick the better answer; in
   **Blind** mode you see who wrote which only afterwards. The score is kept.
-- **Vision**: a picture, a screenshot or four frames of a video, for the agents that can see (Claude
-  Code, Codex, Pi). **Clear** removes the pictures. Pictures are scaled down and saved again first,
+- **Vision**: a picture, a screenshot or four frames of a video, for the agents that can see and run
+  without tools (Claude Code, Pi). **Clear** removes the pictures. Pictures are scaled down and saved again first,
   so no photo metadata goes out.
 - **Generate**: a picture from a text, made on this computer's graphics card with
   [stable-diffusion.cpp](https://github.com/leejet/stable-diffusion.cpp) and the
@@ -70,18 +70,23 @@ Spanish, Italian, Portuguese, Dutch and Polish.
 
 Each agent is started once per question, the way its own command line offers for one prompt and one
 answer, **without tools**: `claude -p --tools ""`, `codex exec --sandbox read-only`, `hermes -z` with
-only its in-memory task list, `pi -p --no-tools`, and so on. It runs in an empty private folder
+only its in-memory task list, `pi -p --no-tools --no-mcp --no-skills --no-context-files`, and so on. It runs in an empty private folder
 (created `0700`, deleted afterwards), with a time limit, and its answer is read with a size limit.
 Pictures are copied into that folder first and given to the agent the way it takes them (stdin for
-Claude Code, `-i` for Codex, `@file` for Pi). Claude Code and Codex get the question on stdin; the
-others take it only as a command-line argument, which other accounts on the computer can see while
-the agent runs. Every program is started as an argv list, never through a shell. The agents send the
+Claude Code, `-i` for Codex, `@file` for Pi). Claude Code, Codex and Pi get the question on stdin;
+Hermes takes it only as a command-line argument, which other accounts on the computer can see while
+it runs. Every program is started as an argv list, never through a shell. The agents send the
 question to their own providers as they always do; AI Playground adds nothing.
 
-A video's description, captions and frames come from the web, so they go only to an agent that runs
-with no tools at all (Claude Code with `--tools "" --strict-mcp-config`, Pi with `--no-tools`, Hermes
-with only its task list): words planted in a video cannot make it read your files. Codex is left out
-of reading videos, because its read-only sandbox still lets it read files.
+A video's description, captions and frames, and the pictures of the Vision tab, may come from the
+web, so they go only to an agent that runs with no tools at all (Claude Code with `--tools ""
+--strict-mcp-config`, Pi with `--no-tools --no-mcp`, Hermes with only its task list): words planted
+in a video or a picture cannot make it read your files. Codex is left out of both, because its
+read-only sandbox still lets it read files.
+
+When AI Playground is closed, nothing it started keeps running: agents still answering are ended
+with what they started, a vision file still downloading stops, and a local LLM it started for a job
+is stopped again (unless another program uses it).
 
 ## Privacy and capabilities
 
