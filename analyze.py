@@ -90,7 +90,9 @@ def _tokens(text: str) -> int | None:
 def pi_models(runner=None) -> list:
     """`pi --list-models` as Choices (provider/model)."""
     import ai_core
-    out, ok = (runner or ai_core.read_bounded_output)(["pi", "--list-models"], max_bytes=MAX_LIST, timeout=30)
+    import agent_paths
+    argv, env = agent_paths.resolve(["pi", "--list-models"])
+    out, ok = (runner or ai_core.read_bounded_output)(argv, max_bytes=MAX_LIST, timeout=30, env=env)
     found = []
     for line in (out.decode("utf-8", "replace") if isinstance(out, bytes) else str(out or "")).splitlines()[1:]:
         match = PI_ROW.match(line.strip())

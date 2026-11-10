@@ -48,17 +48,19 @@ class Asking(unittest.TestCase):
     def fake(self, answer: bytes, ok=True):
         seen = {}
 
-        def run(argv, max_bytes, timeout, cwd, env):
+        def run(argv, max_bytes, timeout, cwd, env, stdin=None):
             seen.update(argv=argv, cwd=cwd, mode=os.stat(cwd).st_mode & 0o777, empty=not os.listdir(cwd),
-                        max_bytes=max_bytes, timeout=timeout)
+                        max_bytes=max_bytes, timeout=timeout, stdin=stdin)
             return answer, ok
         return run, seen
 
-    def test_the_prompt_is_one_argument_in_a_private_empty_folder(self):
+    def test_the_prompt_goes_on_stdin_in_a_private_empty_folder(self):
         run, seen = self.fake(b"e5\nThe classical answer: I claim the centre.")
-        reply = chess_agent.ask("claude", "a prompt; with $(rm -rf ~) and \"quotes\"", self.pos, runner=run)
-        self.assertEqual(seen["argv"][0], "claude")
-        self.assertEqual(seen["argv"].count("a prompt; with $(rm -rf ~) and \"quotes\""), 1)
+        prompt = "a prompt; with $(rm -rf ~) and \"quotes\""
+        reply = chess_agent.ask("claude", prompt, self.pos, runner=run)
+        self.assertTrue(seen["argv"][0].endswith("claude"))
+        self.assertNotIn(prompt, seen["argv"], "not visible to other accounts in the process list")
+        self.assertEqual(seen["stdin"], prompt.encode())
         self.assertEqual(seen["mode"], 0o700)
         self.assertTrue(seen["empty"])
         self.assertFalse(Path(seen["cwd"]).exists(), "the folder is removed afterwards")
@@ -106,7 +108,7 @@ class WhoCanPlay(unittest.TestCase):
         self.assertEqual(chess_agent.run_argv("codex", "P", "max")[-3:], ["-c", "model_reasoning_effort=high", "P"])
         seen = {}
 
-        def run(argv, max_bytes, timeout, cwd, env):
+        def run(argv, max_bytes, timeout, cwd, env, stdin=None):
             seen["timeout"] = timeout
             return b"e5", True
         start = rules.start()
@@ -150,3 +152,21 @@ class WhoCanPlay(unittest.TestCase):
 
 if __name__ == "__main__":
     unittest.main()
+
+
+class PromptPlaceTest(unittest.TestCase):
+    def test_codex_reads_stdin_hermes_takes_an_argument(self):
+        pos = rules.start()
+        seen = {}
+
+        def run(argv, max_bytes, timeout, cwd, env, stdin=None):
+            seen[argv[0].rsplit("/", 1)[-1]] = (list(argv), stdin)
+            return b"e4", True
+        chess_agent.ask("codex", "the question", pos, runner=run)
+        chess_agent.ask("hermes", "the question", pos, runner=run)
+        argv, stdin = seen["codex"]
+        self.assertEqual(argv[-1], "-")
+        self.assertEqual(stdin, b"the question")
+        argv, stdin = seen["hermes"]
+        self.assertIn("the question", argv)
+        self.assertIsNone(stdin)

@@ -13,6 +13,7 @@ from types import SimpleNamespace
 
 from gi.repository import Adw, Gtk, Pango
 
+import agent_paths
 import ai_core
 import chess_agent
 import harnesses
@@ -25,7 +26,7 @@ def askable_agents() -> list:
     found = []
     for harness in harnesses.all_harnesses():
         argv = chess_agent.ask_argv(harness.command)
-        if argv and shutil.which(argv[0]):
+        if argv and agent_paths.find(argv[0]):
             found.append(SimpleNamespace(command=harness.command, name=harness.name, installed=True))
     return found
 

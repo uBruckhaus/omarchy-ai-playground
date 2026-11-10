@@ -158,3 +158,11 @@ class AnswersOfAgents(unittest.TestCase):
 
 if __name__ == "__main__":
     unittest.main()
+
+
+class QuietPromotionTest(unittest.TestCase):
+    def test_a_quiet_promotion_resets_the_fifty_move_counter(self):
+        pos = c.from_fen("8/P6k/8/8/8/8/8/K7 w - - 10 40")
+        after = c.apply(pos, c.parse(pos, "a8=Q"))
+        self.assertEqual(after.board[c.square("a8")], "Q")
+        self.assertEqual(after.halfmove, 0)

@@ -426,11 +426,13 @@ def login_state(command: str) -> bool | None:
     import ai_core
     import shutil
     entry = STATUS_COMMANDS.get(command)
-    if entry is None or not shutil.which(entry[0][0]):
+    import agent_paths
+    if entry is None or not agent_paths.find(entry[0][0]):
         return None
     argv, negative, positive = entry
+    argv, env = agent_paths.resolve(list(argv))
     try:
-        out, _ok = ai_core.read_bounded_output(list(argv), max_bytes=16384, timeout=8, merge_stderr=True)
+        out, _ok = ai_core.read_bounded_output(argv, max_bytes=16384, timeout=8, merge_stderr=True, env=env)
     except Exception:
         return None
     text = out.decode("utf-8", "replace").lower()

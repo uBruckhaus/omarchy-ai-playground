@@ -176,9 +176,11 @@ def ask(command: str, prompt: str, images=(), level: str = chess_agent.DEFAULT_T
         if not argv:
             return Result(error=_("This agent cannot be asked."))
         run = runner or ai_core.read_bounded_output
+        import agent_paths
+        argv, env = agent_paths.resolve(argv, {**os.environ, "NO_COLOR": "1"})
         start = time.monotonic()
         out, ok = run(argv, max_bytes=MAX_ANSWER, timeout=timeout or chess_agent.seconds(level) + 15,
-                      stdin=stdin, cwd=folder, env={**os.environ, "NO_COLOR": "1"})
+                      stdin=stdin, cwd=folder, env=env)
         spent = time.monotonic() - start
     except OSError as error:
         return Result(error=str(error))

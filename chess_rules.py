@@ -275,6 +275,7 @@ def apply(pos: Position, move: Move) -> Position:
     """The position after a move (assumed legal: see legal_moves)."""
     board = list(pos.board)
     piece = board[move.start]
+    pawn = piece.upper() == "P"          # before a promotion turns it into another piece
     captured = board[move.end]
     board[move.start] = ""
     ep = None
@@ -294,7 +295,7 @@ def apply(pos: Position, move: Move) -> Position:
     for sq, flags in ((4, "KQ"), (60, "kq"), (0, "Q"), (7, "K"), (56, "q"), (63, "k")):
         if move.start == sq or move.end == sq:
             castling = "".join(c for c in castling if c not in flags)
-    half = 0 if piece.upper() == "P" or captured else pos.halfmove + 1
+    half = 0 if pawn or captured else pos.halfmove + 1
     full = pos.fullmove + (1 if pos.turn == "b" else 0)
     return Position(tuple(board), "b" if pos.turn == "w" else "w", castling, ep, half, full)
 

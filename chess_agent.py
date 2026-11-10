@@ -15,6 +15,7 @@ import shutil
 import tempfile
 from dataclasses import dataclass
 
+import agent_paths
 import chess_rules as rules
 import harnesses
 from i18n import _
@@ -51,7 +52,7 @@ def plays(command: str, game: str = "chess") -> bool:
 def can_play(agent, set_up: bool, game: str = "chess") -> bool:
     """The agent is offered as an opponent: its adapter says it plays, it is installed and set up."""
     return bool(agent is not None and agent.installed and set_up and plays(agent.command, game)
-                and shutil.which(ask_argv(agent.command)[0]))
+                and agent_paths.find(ask_argv(agent.command)[0]))
 
 
 def side_name(side: str) -> str:
@@ -147,14 +148,27 @@ def ask(command: str, text: str, pos: rules.Position, runner=None, level: str = 
     """Ask the agent once and read its move (blocking: call it off the main thread). It may take
     the level's time (THINKING), and a little more for starting up."""
     import ai_core
-    argv = run_argv(command, text, level)
+    import agent_run
+    marker = "\x00prompt\x00"
+    argv = run_argv(command, marker, level)
     if not argv:
         return Reply(None, "", "", _("This agent cannot be asked for a move."))
+    # The question on stdin where the agent takes it there (as agent_run does): an argument is
+    # visible to other local accounts while the agent runs. Hermes takes it only as an argument.
+    at, stdin = argv.index(marker), None
+    if command in agent_run.STDIN_PROMPT:
+        if agent_run.STDIN_PROMPT[command] is None:
+            del argv[at]
+        else:
+            argv[at] = agent_run.STDIN_PROMPT[command]
+        stdin = text.encode()
+    else:
+        argv[at] = text
+    argv, env = agent_paths.resolve(argv, {**os.environ, "NO_COLOR": "1"})
     run = runner or ai_core.read_bounded_output
     folder = tempfile.mkdtemp(prefix="ai-playground-chess-")   # private (0700), empty
     try:
-        out, ok = run(argv, max_bytes=MAX_ANSWER, timeout=seconds(level) + 15, cwd=folder,
-                      env={**os.environ, "NO_COLOR": "1"})
+        out, ok = run(argv, max_bytes=MAX_ANSWER, timeout=seconds(level) + 15, cwd=folder, env=env, stdin=stdin)
     finally:
         shutil.rmtree(folder, ignore_errors=True)
     answer = out.decode("utf-8", "replace") if isinstance(out, bytes) else str(out or "")
