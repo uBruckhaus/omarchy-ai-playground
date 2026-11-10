@@ -1,7 +1,7 @@
 """Where an agent's program is: on PATH, else in the usual folders a user installs agents into
 (mise, npm, bun, cargo, deno, volta, asdf, Homebrew), which an app started from the desktop often
 does not have on its PATH. Only regular, executable files owned by the user or root are taken,
-in folders that no other account can change.
+in folders no other account can change, as a plain file or through one link straight to it.
 
 resolve() gives the argv to start and the environment to start it in: the program by its full path,
 and its folder put in front of PATH, because shims (mise, asdf) call other programs from there.
@@ -19,46 +19,48 @@ USER_DIRS = (".local/bin", ".local/share/mise/shims", ".npm-global/bin", ".bun/b
 SYSTEM_DIRS = ("/home/linuxbrew/.linuxbrew/bin",)
 
 
-def _own_links(path: Path) -> bool:
-    """Every link on the way to the program (the program itself included) belongs to this user or
-    root: a link someone else owns could be pointed elsewhere after the check."""
-    for part in [path, *path.parents]:
+def _closed(folder: Path) -> bool:
+    """`folder` and every folder above it: no link, owned by this user or root, changeable only by
+    its owner (a root-owned sticky folder like /tmp counts as closed: nobody can rename or remove
+    what belongs to someone else there)."""
+    for part in [folder, *folder.parents]:
         try:
             info = os.lstat(part)
         except OSError:
             return False
-        if stat.S_ISLNK(info.st_mode) and info.st_uid not in (os.getuid(), 0):
+        if stat.S_ISLNK(info.st_mode) or info.st_uid not in (os.getuid(), 0):
+            return False
+        if info.st_mode & 0o022 and not (info.st_uid == 0 and info.st_mode & stat.S_ISVTX):
             return False
     return True
 
 
-def _trusted_dirs(path: Path) -> bool:
-    """Every folder from / down to the program (as named and where a link leads) belongs to this user
-    or root and only its owner may change it, so no other account can swap the program in between."""
-    if not _own_links(path):
+def _program(path: Path) -> bool:
+    """A regular, executable file of this user or root in closed folders, reached without a link."""
+    try:
+        info = os.lstat(path)
+    except OSError:
         return False
-    for target in {path.parent, Path(os.path.realpath(path)).parent}:
-        for folder in [target, *target.parents]:
-            try:
-                info = os.stat(folder)
-            except OSError:
-                return False
-            if info.st_uid not in (os.getuid(), 0):
-                return False
-            # Writable by others only as a root-owned sticky folder like /tmp: there nobody can
-            # rename or remove what belongs to someone else.
-            if info.st_mode & 0o022 and not (info.st_uid == 0 and info.st_mode & stat.S_ISVTX):
-                return False
-    return True
+    return (stat.S_ISREG(info.st_mode) and info.st_mode & 0o111 != 0 and info.st_uid in (os.getuid(), 0)
+            and not info.st_mode & 0o022 and _closed(path.parent))
 
 
 def _usable(path: Path) -> bool:
+    """The program as a plain file, or one link (of this user or root) straight to such a file; links
+    reached through another link are never followed, so nothing can be swapped in between."""
     try:
-        info = path.stat()
+        info = os.lstat(path)
     except OSError:
         return False
-    return (stat.S_ISREG(info.st_mode) and os.access(path, os.X_OK)
-            and info.st_uid in (os.getuid(), 0) and _trusted_dirs(path))
+    if not stat.S_ISLNK(info.st_mode):
+        return _program(path)
+    if info.st_uid not in (os.getuid(), 0) or not _closed(path.parent):
+        return False
+    try:
+        target = Path(os.path.normpath(os.path.join(path.parent, os.readlink(path))))
+    except OSError:
+        return False
+    return _program(target)
 
 
 def find(name: str, home: Path | None = None) -> str | None:

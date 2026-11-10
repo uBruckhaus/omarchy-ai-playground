@@ -84,6 +84,21 @@ class AgentPathsTest(unittest.TestCase):
         with mock.patch("shutil.which", return_value=None):
             self.assertEqual(agent_paths.find("codex", self.home), str(self.tool))   # our own link is fine
 
+    def test_link_reached_through_another_link_is_not_followed(self):
+        real = self.home / "codex-real"
+        real.write_text("#!/bin/sh\n")
+        real.chmod(0o755)
+        middle = self.home / "middle"
+        middle.symlink_to(real)                      # a second link someone could repoint
+        self.tool.unlink()
+        self.tool.symlink_to(middle)
+        with mock.patch("shutil.which", return_value=None):
+            self.assertIsNone(agent_paths.find("codex", self.home))
+        self.tool.unlink()
+        self.tool.symlink_to(real)                   # one link straight to the file: fine
+        with mock.patch("shutil.which", return_value=None):
+            self.assertEqual(agent_paths.find("codex", self.home), str(self.tool))
+
 
 if __name__ == "__main__":
     unittest.main()
