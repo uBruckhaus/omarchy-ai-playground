@@ -10,7 +10,8 @@ from gi.repository import Gdk, GLib, Gtk
 import math
 
 import ai_core
-from automaton import NAMED_RULES, PATTERNS, Automaton, Rule, rule_name
+from automaton import MIXER_NAME, NAMED_RULES, PATTERNS, Automaton, Rule, find_pattern, is_materials_rule, rule_name
+from automaton_info import MATERIALS_NOTE, PATTERN_INFO, RULE_INFO
 from i18n import _
 
 OWN_RULE = "Own rule…"
@@ -26,6 +27,7 @@ INTRO = ("A cellular automaton: each cell lives or dies by how many of its eight
 # long time (still lifes) is violet. A cell that has just died leaves a faint red trace.
 BORN, YOUNG, ACTIVE, SETTLED, STILL, DIED = "#4ade80", "#facc15", "#fb923c", "#22d3ee", "#a78bfa", "#f87171"
 STOPS = ((1, BORN), (3, YOUNG), (8, ACTIVE), (25, SETTLED), (80, STILL))
+RESIN, HARDENER = "#fb923c", "#22d3ee"
 LEGEND = ((BORN, "Born"), (YOUNG, "Young: moves or changes"), (ACTIVE, "Active"), (SETTLED, "Settled"),
           (STILL, "Standing still"), (DIED, "Just died"))
 
@@ -68,14 +70,16 @@ class AutomatonTab:
         # Rule, own rule, Use rule, what a click does.
         row = Gtk.Box(spacing=8)
         row.add_css_class("am-chess-controls")
-        self.au_rule_names = list(NAMED_RULES) + [OWN_RULE]
+        self.au_rule_names = list(NAMED_RULES) + [MIXER_NAME, OWN_RULE]
         self.au_rule = Gtk.DropDown.new_from_strings(
-            [f"{n}  {NAMED_RULES[n]}" for n in NAMED_RULES] + [_(OWN_RULE)])
+            [f"{_(n) if is_materials_rule(n) else n}  {NAMED_RULES[n]}" for n in NAMED_RULES]
+            + [_(MIXER_NAME), _(OWN_RULE)])
         self.au_rule.set_tooltip_text(_("Rule"))
         name = rule_name(rule)
         self.au_rule.set_selected(self.au_rule_names.index(name) if name else len(self.au_rule_names) - 1)
         self.au_rule.connect("notify::selected", lambda *_a: self.au_pick_rule())
         row.append(self.au_rule)
+        row.append(self.icon_button("help-about-symbolic", self.au_explain_rule, _("About this rule")))
         self.au_rule_text = Gtk.Entry(text=rule.notation, width_chars=12, placeholder_text="B3/S23")
         self.au_rule_text.connect("activate", lambda *_a: self.au_apply_rule(self.au_rule_text.get_text()))
         row.append(self.au_rule_text)
@@ -87,6 +91,7 @@ class AutomatonTab:
         self.au_tool.set_tooltip_text(_("What a click does: draw (the right button erases) or place a pattern"))
         self.au_tool.set_margin_start(8)
         row.append(self.au_tool)
+        row.append(self.icon_button("help-about-symbolic", self.au_explain_pattern, _("About this pattern")))
         box.append(row)
 
         # Play, Step, Clear, Random with its density, Speed, Edges wrap.
@@ -120,6 +125,7 @@ class AutomatonTab:
         self.au_colors_choice.connect("notify::selected", lambda d, *_a: self.au_set_colors(d.get_selected() == 0))
         row.append(self.au_colors_choice)
         wrap = Gtk.CheckButton(label=_("Edges wrap"), active=self.au_grid.wrap, margin_start=8)
+        self.au_wrap_check = wrap
         wrap.set_tooltip_text(_("On: what leaves at one edge comes back at the other. Off: outside the grid is dead."))
         wrap.connect("toggled", lambda b: (setattr(self.au_grid, "wrap", b.get_active()),
                                            self.save_setting(automaton_wrap=b.get_active())))
@@ -156,6 +162,18 @@ class AutomatonTab:
             item.append(label)
             self.au_legend.append(item)
         box.append(self.au_legend)
+        self.au_mix_legend = Gtk.Box(spacing=16, visible=False)
+        for color, text in ((RESIN, "Resin (component A)"), (HARDENER, "Hardener (component B)")):
+            item = Gtk.Box(spacing=6)
+            swatch = Gtk.DrawingArea(content_width=11, content_height=11, valign=Gtk.Align.CENTER)
+            swatch.set_draw_func(lambda _a, cr, w, h, c=color: (cr.set_source_rgb(*_rgb(c)), cr.rectangle(0, 0, w, h),
+                                                                cr.fill()))
+            item.append(swatch)
+            label = Gtk.Label(label=_(text))
+            label.add_css_class("am-hint")
+            item.append(label)
+            self.au_mix_legend.append(item)
+        box.append(self.au_mix_legend)
 
         # The grid fills the rest of the tab.
         self.au_area = Gtk.DrawingArea(hexpand=True, vexpand=True, focusable=True)
@@ -242,18 +260,125 @@ class AutomatonTab:
         g = self.au_grid
         self.au_play.set_label(_("Pause") if getattr(self, "au_playing", False) else _("Play"))
         self.au_speed_label.set_label(_("{0} / s").format(self.au_speed))
-        self.au_status.set_label(_("Generation {0}  ·  {1} alive  ·  {2} × {3} cells").format(
-            g.generation, g.population, g.width, g.height))
+        if g.mixing:
+            self.au_status.set_label(_("Mixer element {0}  ·  {1} layers  ·  {2} × {3} cells").format(
+                g.generation, g.layers, g.width, g.height))
+        else:
+            self.au_status.set_label(_("Generation {0}  ·  {1} alive  ·  {2} × {3} cells").format(
+                g.generation, g.population, g.width, g.height))
+        self.au_legend.set_visible(self.au_by_age and not g.mixing)
+        self.au_mix_legend.set_visible(g.mixing)
         self.au_size_hint.set_label(_("Ctrl + wheel: cell size ({0} px)").format(self.au_cell))
         self.au_spark.queue_draw()
         if draw:
             self.au_area.queue_draw()
 
+    # --- the hint windows -------------------------------------------------------------------------
+
+    def au_explain_rule(self):
+        name = self.au_rule_names[self.au_rule.get_selected()]
+        if name == OWN_RULE:
+            self.au_explain(_(OWN_RULE), self.au_rule_text.get_text(), RULE_INFO["own"])
+        elif name == MIXER_NAME:
+            self.au_explain(_(MIXER_NAME), "", RULE_INFO[MIXER_NAME], materials=True)
+        else:
+            materials = is_materials_rule(name)
+            self.au_explain(_(name) if materials else name, NAMED_RULES[name], RULE_INFO[name], materials=materials)
+
+    def au_explain_pattern(self):
+        tool = self.au_tools[self.au_tool.get_selected()]
+        self.au_explain(_(tool), "", PATTERN_INFO["draw" if tool == DRAW else tool])
+
+    def au_explain(self, title: str, notation: str, info: dict, materials: bool = False):
+        """What the scenario is, what to look for, how to try it; "Try it" sets it up and starts it."""
+        from gi.repository import Adw, Pango
+        dialog = Adw.AlertDialog(heading=title + (f"   {notation}" if notation else ""))
+        body = Gtk.Box(orientation=Gtk.Orientation.VERTICAL, spacing=14)
+        parts = [("starred-symbolic", _("What happens"), info["what"]),
+                 ("view-reveal-symbolic", _("What to look for"), info["watch"]),
+                 ("media-playback-start-symbolic", _("Try this"), info["try"])]
+        if materials:
+            parts.append(("applications-science-symbolic", _("Good to know"), MATERIALS_NOTE))
+        for icon, heading, text in parts:
+            part = Gtk.Box(spacing=10)
+            part.append(Gtk.Image(icon_name=icon, valign=Gtk.Align.START))
+            texts = Gtk.Box(orientation=Gtk.Orientation.VERTICAL, spacing=4, hexpand=True)
+            head = Gtk.Label(label=heading.upper(), xalign=0)
+            head.add_css_class("am-section-title")
+            texts.append(head)
+            line = Gtk.Label(label=_(text), xalign=0, wrap=True, max_width_chars=60)
+            line.set_wrap_mode(Pango.WrapMode.WORD_CHAR)
+            texts.append(line)
+            part.append(texts)
+            body.append(part)
+        if info.get("links"):
+            part = Gtk.Box(spacing=10)
+            part.append(Gtk.Image(icon_name="web-browser-symbolic", valign=Gtk.Align.START))
+            texts = Gtk.Box(orientation=Gtk.Orientation.VERTICAL, spacing=4, hexpand=True)
+            head = Gtk.Label(label=_("Read more").upper(), xalign=0)
+            head.add_css_class("am-section-title")
+            texts.append(head)
+            row = Gtk.FlowBox(selection_mode=Gtk.SelectionMode.NONE, column_spacing=6, row_spacing=6,
+                              max_children_per_line=4)
+            for title_text, url in info["links"]:
+                # Only the fixed https addresses of automaton_info, opened in the browser.
+                row.append(self.small_button(f"{title_text}  ↗", lambda u=url: self.au_open_page(u), url))
+            texts.append(row)
+            part.append(texts)
+            body.append(part)
+        dialog.set_extra_child(body)
+        dialog.add_response("close", _("Close"))
+        dialog.add_response("try", _("Try it"))
+        dialog.set_response_appearance("try", Adw.ResponseAppearance.SUGGESTED)
+        dialog.set_default_response("try")
+        dialog.set_close_response("close")
+        dialog.connect("response", lambda _d, answer: answer == "try" and self.au_try(info["setup"]))
+        dialog.present(self.window)
+
+    def au_open_page(self, url: str):
+        if url.startswith("https://"):
+            Gtk.UriLauncher.new(url).launch(self.window, None, None)
+
+    def au_try(self, setup: dict):
+        """The scenario's rule, edges and start (a random fill or a pattern in the middle of an empty
+        grid, or the two components of the mixer), then it runs (or waits for Step)."""
+        g = self.au_grid
+        if "speed" in setup:
+            self.au_speed_scale.set_value(setup["speed"])
+        if setup.get("mixer"):
+            self.au_rule.set_selected(self.au_rule_names.index(MIXER_NAME))
+            g.mixing = True
+            g.fill_halves()
+            self.au_playing = setup.get("play", True)
+            self.au_schedule()
+            self.au_refresh()
+            return
+        if setup.get("rule"):
+            self.au_apply_rule(setup["rule"])
+        if "wrap" in setup and setup["wrap"] != g.wrap:
+            g.wrap = setup["wrap"]
+            self.save_setting(automaton_wrap=g.wrap)
+            if hasattr(self, "au_wrap_check"):
+                self.au_wrap_check.set_active(g.wrap)
+        g.clear()
+        if "density" in setup:
+            g.randomize(setup["density"])
+        elif "pattern" in setup:
+            p = find_pattern(setup["pattern"])
+            g.stamp(p, (g.width - p.width) // 2, (g.height - p.height) // 2)
+        self.au_playing = setup.get("play", True)
+        self.au_schedule()
+        self.au_refresh()
+
     # --- the rule ----------------------------------------------------------------------------------
 
     def au_pick_rule(self):
         name = self.au_rule_names[self.au_rule.get_selected()]
-        if name != OWN_RULE:
+        self.au_grid.mixing = name == MIXER_NAME
+        if name == MIXER_NAME:
+            self.au_grid.fill_halves()      # resin above, hardener below: ready for the first element
+            self.au_refresh()
+        elif name != OWN_RULE:
             self.au_apply_rule(NAMED_RULES[name])
 
     def au_apply_rule(self, text: str):
@@ -264,6 +389,7 @@ class AutomatonTab:
             self.toast(_(str(error)))
             return
         self.au_rule_text.remove_css_class("error")
+        self.au_grid.mixing = False
         self.au_grid.set_rule(rule)
         self.au_rule_text.set_text(rule.notation)
         self.save_setting(automaton_rule=rule.notation)
@@ -372,6 +498,17 @@ class AutomatonTab:
             cr.stroke()
         inset = 1 if cell >= 8 else 0
         states = g.rule.states
+        if g.mixing:
+            # Resin and hardener: every cell is one of the two components.
+            cr.set_source_rgba(*_rgb(HARDENER), .85)
+            cr.rectangle(0, 0, w, h)
+            cr.fill()
+            cr.set_source_rgb(*_rgb(RESIN))
+            for i, c in enumerate(g.cells):
+                if c == 1:
+                    cr.rectangle((i % g.width) * cell, (i // g.width) * cell, cell, cell)
+            cr.fill()
+            return
         if self.au_by_age:
             # A faint red trace where a cell just died, then the live cells grouped by their colour.
             cr.set_source_rgba(*_rgb(DIED), .35)

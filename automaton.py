@@ -57,7 +57,18 @@ NAMED_RULES = {
     "Replicator": "B1357/S1357",
     "Brian's Brain": "B2/S/C3",
     "Star Wars": "B2/S345/C4",
+    # Materials: plastics and adhesives, shown (not measured) with simple rules.
+    "Plastics: demixing of a blend": "B4678/S35678",
+    "Plastics: crystallization": "B1/S012345678",
+    "Adhesive: curing": "B35678/S012345678",
 }
+
+# The static mixer of a two-component adhesive is not a rule: each generation is one mixer element.
+MIXER_NAME = "Adhesive: static mixer (2K)"
+
+
+def is_materials_rule(name: str) -> bool:
+    return name.startswith(("Plastics: ", "Adhesive: "))
 
 
 def rule_name(rule: Rule):
@@ -112,6 +123,18 @@ PATTERNS = (
     CellPattern("Diehard", ("......O.", "OO......", ".O...OOO"), "vanishes after 130 generations"),
 )
 
+# Small shapes that only "Try it" uses (not in the pattern menu).
+SETUP_PATTERNS = (
+    CellPattern("Blinker", ("OOO",), "three cells in a row: an oscillator of period 2"),
+    CellPattern("Seeds pair", ("OO",), "two cells side by side: the seed of an explosion in Seeds"),
+)
+
+
+def find_pattern(name: str):
+    """A pattern by its name (the menu's or a setup one), or None."""
+    return next((p for p in PATTERNS + SETUP_PATTERNS if p.name == name), None)
+
+
 HISTORY = 200        # generations of population kept for the sparkline
 
 
@@ -129,6 +152,10 @@ class Automaton:
         self.died = bytearray(width * height)
         self.generation = 0
         self.history: list = []
+        # The static mixer (2K adhesive): instead of the rule, each generation is one mixer element.
+        # It cuts the flow in two and stacks the halves, so the layers of resin (live cells) and
+        # hardener (dead cells) double in number each time: 2, 4, 8, 16 …
+        self.mixing = False
 
     def cell(self, x: int, y: int) -> int:
         return self.cells[y * self.width + x]
@@ -160,6 +187,8 @@ class Automaton:
 
     def step(self) -> bool:
         """One generation; whether anything changed."""
+        if self.mixing:
+            return self._mix_step()
         w, h, cells, rule = self.width, self.height, self.cells, self.rule
         nxt = bytearray(len(cells))
         ages = [0] * len(cells)
@@ -201,6 +230,50 @@ class Automaton:
         self.generation += 1
         self._remember()
         return changed
+
+    def _mix_step(self) -> bool:
+        """One mixer element: every row takes the one at twice its distance from the top, so the grid
+        holds two squeezed copies of itself: twice the layers, each half as thick. Mixed down to one
+        cell per layer, the mixer stops (another element would only lose layers)."""
+        if self.layers * 2 > self.height:
+            return False
+        w, h = self.width, self.height
+        old, old_ages = self.cells, self.ages
+        nxt, ages, died = bytearray(w * h), [0] * (w * h), bytearray(w * h)
+        changed = False
+        for y in range(h):
+            src = ((2 * y) % h) * w
+            for x in range(w):
+                i = y * w + x
+                v = 1 if old[src + x] == 1 else 0
+                nxt[i] = v
+                if v == 1:
+                    ages[i] = min(old_ages[i] + 1, 65535) if old[i] == 1 else 1
+                elif old[i] == 1:
+                    died[i] = 1
+                if v != old[i]:
+                    changed = True
+        self.cells, self.ages, self.died = nxt, ages, died
+        self.generation += 1
+        self._remember()
+        return changed
+
+    def fill_halves(self) -> None:
+        """The two components before mixing: resin (live cells) in the top half, hardener below."""
+        self.clear()
+        for i in range((self.height // 2) * self.width):
+            self.cells[i] = 1
+            self.ages[i] = 1
+        self.history.append(self.population)
+
+    @property
+    def layers(self) -> int:
+        """The layers of resin and hardener, counted down the first column."""
+        n = 1
+        for y in range(1, self.height):
+            if (self.cells[y * self.width] == 1) != (self.cells[(y - 1) * self.width] == 1):
+                n += 1
+        return n
 
     def _remember(self) -> None:
         self.history.append(self.population)

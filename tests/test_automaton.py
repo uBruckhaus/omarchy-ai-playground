@@ -7,7 +7,8 @@ from pathlib import Path
 HERE = Path(__file__).resolve().parent.parent
 sys.path.insert(0, str(HERE))
 
-from automaton import NAMED_RULES, PATTERNS, Automaton, Rule, rule_name  # noqa: E402
+from automaton import MIXER_NAME, NAMED_RULES, PATTERNS, Automaton, Rule, find_pattern, is_materials_rule, rule_name  # noqa: E402
+from automaton_info import PATTERN_INFO, RULE_INFO  # noqa: E402
 
 
 def grid(rows, rule="B3/S23", wrap=False):
@@ -133,6 +134,42 @@ class AgeTest(unittest.TestCase):
         a.randomize(.5, seed=2)
         a.clear()
         self.assertEqual(sum(a.ages), 0)
+
+
+class InfoTest(unittest.TestCase):
+    def test_every_scenario_is_explained_and_can_be_tried(self):
+        self.assertTrue(set(NAMED_RULES) | {"own", MIXER_NAME} <= set(RULE_INFO))
+        self.assertTrue({p.name for p in PATTERNS} | {"draw"} <= set(PATTERN_INFO))
+        for info in list(RULE_INFO.values()) + list(PATTERN_INFO.values()):
+            self.assertTrue(info["what"] and info["watch"] and info["try"])
+            setup = info["setup"]
+            if "rule" in setup:
+                Rule.parse(setup["rule"])
+            if "pattern" in setup:
+                self.assertIsNotNone(find_pattern(setup["pattern"]), setup["pattern"])
+            self.assertFalse("density" in setup and "pattern" in setup)
+            self.assertTrue(info["links"])
+            for _title, url in info["links"]:
+                self.assertTrue(url.startswith("https://en.wikipedia.org/wiki/"))
+
+
+class MixerTest(unittest.TestCase):
+    def test_layers_double_until_one_cell_thin(self):
+        a = Automaton(16, 16, Rule.parse("B3/S23"))
+        a.mixing = True
+        a.fill_halves()
+        self.assertEqual(a.layers, 2)
+        for n in (4, 8, 16):
+            self.assertTrue(a.step())
+            self.assertEqual(a.layers, n)
+            self.assertEqual(a.population, 128)
+        self.assertFalse(a.step())
+        self.assertEqual(a.layers, 16)
+
+    def test_materials_rules(self):
+        for name in ("Plastics: demixing of a blend", "Plastics: crystallization", "Adhesive: curing"):
+            self.assertEqual(rule_name(Rule.parse(NAMED_RULES[name])), name)
+            self.assertTrue(is_materials_rule(name))
 
 
 if __name__ == "__main__":
