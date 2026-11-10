@@ -52,6 +52,26 @@ def _rgb(hex_color: str, fallback=(0.5, 0.5, 0.5)):
 
 
 class AutomatonTab:
+    @staticmethod
+    def au_flow_row(spacing: int = 12, **props) -> Gtk.FlowBox:
+        """A row of control groups that wraps onto the next line in a narrow window (the window can
+        then be narrower than all the controls side by side, and the header stays on screen)."""
+        row = Gtk.FlowBox(selection_mode=Gtk.SelectionMode.NONE, homogeneous=False, column_spacing=spacing,
+                          row_spacing=6, min_children_per_line=1, max_children_per_line=24, **props)
+        row.add_css_class("am-chess-controls")
+        row.add_css_class("am-flow")
+        return row
+
+    @staticmethod
+    def au_group(*widgets) -> Gtk.Box:
+        """Controls that belong together and wrap as one (a choice and its ⓘ, Speed and its scale)."""
+        group = Gtk.Box(spacing=8, valign=Gtk.Align.CENTER)
+        group.add_css_class("am-chess-controls")
+        for widget in widgets:
+            widget.set_valign(Gtk.Align.CENTER)       # the small buttons stay their own height beside Play
+            group.append(widget)
+        return group
+
     def build_automaton_tab(self) -> Gtk.Widget:
         box = Gtk.Box(orientation=Gtk.Orientation.VERTICAL, spacing=ai_core.GAP, margin_end=14)
         self.tab_intro(box, _("Automaton"), _(INTRO))
@@ -68,8 +88,7 @@ class AutomatonTab:
         self.au_last = None
 
         # Rule, own rule, Use rule, what a click does.
-        row = Gtk.Box(spacing=8)
-        row.add_css_class("am-chess-controls")
+        row = self.au_flow_row()
         self.au_rule_names = list(NAMED_RULES) + [MIXER_NAME, OWN_RULE]
         self.au_rule = Gtk.DropDown.new_from_strings(
             [f"{_(n) if is_materials_rule(n) else n}  {NAMED_RULES[n]}" for n in NAMED_RULES]
@@ -78,62 +97,53 @@ class AutomatonTab:
         name = rule_name(rule)
         self.au_rule.set_selected(self.au_rule_names.index(name) if name else len(self.au_rule_names) - 1)
         self.au_rule.connect("notify::selected", lambda *_a: self.au_pick_rule())
-        row.append(self.au_rule)
-        row.append(self.icon_button("help-about-symbolic", self.au_explain_rule, _("About this rule")))
+        row.append(self.au_group(self.au_rule,
+                                 self.icon_button("help-about-symbolic", self.au_explain_rule, _("About this rule"))))
         self.au_rule_text = Gtk.Entry(text=rule.notation, width_chars=12, placeholder_text="B3/S23")
         self.au_rule_text.connect("activate", lambda *_a: self.au_apply_rule(self.au_rule_text.get_text()))
-        row.append(self.au_rule_text)
-        row.append(self.small_button(_("Use rule"), lambda: self.au_apply_rule(self.au_rule_text.get_text()),
-                                     _("B: neighbours a dead cell needs to be born, S: neighbours a live cell needs "
-                                       "to stay, C: states of a Generations rule")))
+        row.append(self.au_group(
+            self.au_rule_text,
+            self.small_button(_("Use rule"), lambda: self.au_apply_rule(self.au_rule_text.get_text()),
+                              _("B: neighbours a dead cell needs to be born, S: neighbours a live cell needs "
+                                "to stay, C: states of a Generations rule"))))
         self.au_tools = [DRAW] + [p.name for p in PATTERNS]
         self.au_tool = Gtk.DropDown.new_from_strings([_(t) for t in self.au_tools])
         self.au_tool.set_tooltip_text(_("What a click does: draw (the right button erases) or place a pattern"))
-        self.au_tool.set_margin_start(8)
-        row.append(self.au_tool)
-        row.append(self.icon_button("help-about-symbolic", self.au_explain_pattern, _("About this pattern")))
+        row.append(self.au_group(self.au_tool, self.icon_button("help-about-symbolic", self.au_explain_pattern,
+                                                                _("About this pattern"))))
         box.append(row)
 
         # Play, Step, Clear, Random with its density, Speed, Edges wrap.
-        row = Gtk.Box(spacing=8)
-        row.add_css_class("am-chess-controls")
+        row = self.au_flow_row()
         self.au_play = self.action_button(_("Play"), self.au_play_pause, _("Space"))
-        row.append(self.au_play)
-        row.append(self.small_button(_("Step"), self.au_step, _("One generation (→)")))
-        row.append(self.small_button(_("Clear"), self.au_clear))
-        row.append(self.small_button(_("Random"), self.au_random, _("Fill at random with the density beside it")))
+        row.append(self.au_group(self.au_play, self.small_button(_("Step"), self.au_step, _("One generation (→)")),
+                                 self.small_button(_("Clear"), self.au_clear)))
+        random_button = self.small_button(_("Random"), self.au_random, _("Fill at random with the density beside it"))
         self.au_density = Gtk.DropDown.new_from_strings([f"{int(d * 100)} %" for d in DENSITIES])
         self.au_density.set_selected(2)
         self.au_density.set_tooltip_text(_("Density of a random fill"))
-        row.append(self.au_density)
-        label = Gtk.Label(label=_("Speed"), margin_start=8)
-        row.append(label)
+        row.append(self.au_group(random_button, self.au_density))
+        label = Gtk.Label(label=_("Speed"))
         self.au_speed_scale = Gtk.Scale.new_with_range(Gtk.Orientation.HORIZONTAL, 1, 60, 1)
         self.au_speed_scale.set_value(self.au_speed)
         self.au_speed_scale.set_size_request(160, -1)
         self.au_speed_scale.connect("value-changed", lambda s: self.au_set_speed(int(s.get_value())))
-        row.append(self.au_speed_scale)
         self.au_speed_label = Gtk.Label()
         self.au_speed_label.add_css_class("am-hint")
-        row.append(self.au_speed_label)
+        row.append(self.au_group(label, self.au_speed_scale, self.au_speed_label))
         self.au_by_age = ai_core.setting("automaton_colors") == "age"
         self.au_colors_choice = Gtk.DropDown.new_from_strings([_("Colours by age"), _("One colour")])
         self.au_colors_choice.set_selected(0 if self.au_by_age else 1)
         self.au_colors_choice.set_tooltip_text(
             _("By age: what is born, moves or stands still and what has just died, each in its own colour"))
-        self.au_colors_choice.set_margin_start(8)
         self.au_colors_choice.connect("notify::selected", lambda d, *_a: self.au_set_colors(d.get_selected() == 0))
-        row.append(self.au_colors_choice)
-        wrap = Gtk.CheckButton(label=_("Edges wrap"), active=self.au_grid.wrap, margin_start=8)
+        row.append(self.au_group(self.au_colors_choice))
+        wrap = Gtk.CheckButton(label=_("Edges wrap"), active=self.au_grid.wrap)
         self.au_wrap_check = wrap
         wrap.set_tooltip_text(_("On: what leaves at one edge comes back at the other. Off: outside the grid is dead."))
         wrap.connect("toggled", lambda b: (setattr(self.au_grid, "wrap", b.get_active()),
                                            self.save_setting(automaton_wrap=b.get_active())))
-        row.append(wrap)
-        for child in (row.get_first_child(),):        # the small buttons stay their own height beside Play
-            while child is not None:
-                child.set_valign(Gtk.Align.CENTER)
-                child = child.get_next_sibling()
+        row.append(self.au_group(wrap))
         box.append(row)
 
         # Generation, population, size; the sparkline; the cell size hint.
@@ -150,7 +160,7 @@ class AutomatonTab:
         box.append(row)
 
         # What the colours mean, while they are on.
-        self.au_legend = Gtk.Box(spacing=16, visible=self.au_by_age)
+        self.au_legend = self.au_flow_row(16, visible=self.au_by_age)
         for color, text in LEGEND:
             item = Gtk.Box(spacing=6)
             swatch = Gtk.DrawingArea(content_width=11, content_height=11, valign=Gtk.Align.CENTER)
@@ -162,7 +172,7 @@ class AutomatonTab:
             item.append(label)
             self.au_legend.append(item)
         box.append(self.au_legend)
-        self.au_mix_legend = Gtk.Box(spacing=16, visible=False)
+        self.au_mix_legend = self.au_flow_row(16, visible=False)
         for color, text in ((RESIN, "Resin (component A)"), (HARDENER, "Hardener (component B)")):
             item = Gtk.Box(spacing=6)
             swatch = Gtk.DrawingArea(content_width=11, content_height=11, valign=Gtk.Align.CENTER)

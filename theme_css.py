@@ -130,7 +130,7 @@ class ThemeCss:
         .am-hint {{ color: {muted_hex}; font-size: 13px; }}
         .am-card button.am-header-btn {{ padding: 4px; min-width: 0; min-height: 0; margin-right: 4px; }}
         .am-card button.am-view-btn {{ margin-right: 0; }}
-        flowbox.am-tabs > flowboxchild {{ padding: 0; }}
+        flowbox.am-tabs > flowboxchild, flowbox.am-flow > flowboxchild {{ padding: 0; }}
         .am-view-switch {{ margin-right: 4px; }}
         .am-card button.am-gear-btn {{ border: 1px solid alpha({fg_hex}, 0.35); border-radius: {radius}px;
             padding: 1px 6px; margin-right: 0; }}
