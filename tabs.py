@@ -17,6 +17,7 @@ from gi.repository import Gio, GLib, Gtk
 
 import agent_run
 import ai_core
+import dictation
 import gpu_check
 import local_llm
 import picture_check
@@ -249,7 +250,7 @@ class SpeedTab(AgentChecks):
                        _("The same question to several agents and local models at once: how long each one takes, "
                          "and its tokens and cost where it reports them (Claude Code and the local LLMs do)."))
         self.speed_prompt = self.prompt_view(SPEED_PROMPT)
-        box.append(self.speed_prompt)
+        box.append(dictation.with_mic(self.speed_prompt))
         self.speed_checks_box, self.speed_checks = self.agent_checks(self.contestants())
         box.append(self.speed_checks_box)
         box.append(self.action_button(_("Ask"), self.speed_ask, _("Every ticked agent gets the question")))
@@ -272,7 +273,7 @@ class DuelTab(GpuGuard):
                        _("One question to two agents or local models; you pick the better answer and the score is "
                          "kept. Blind: you see which one wrote which only after you have chosen."))
         self.duel_prompt = self.prompt_view(DUEL_PROMPT)
-        box.append(self.duel_prompt)
+        box.append(dictation.with_mic(self.duel_prompt))
         row = Gtk.Box(spacing=8)
         self.duel_choices = self.contestants()
         self.duel_a = self.agent_dropdown(self.duel_choices)
@@ -427,7 +428,7 @@ class VisionTab(AgentChecks):
         self.vision_previews = Gtk.Box(spacing=6, visible=False)     # no empty gap until a picture comes
         box.append(self.vision_previews)
         self.vision_prompt = self.prompt_view(VISION_PROMPT)
-        box.append(self.vision_prompt)
+        box.append(dictation.with_mic(self.vision_prompt))
         checks, self.vision_checks = self.agent_checks(self.vision_agents)
         box.append(checks)
         box.append(self.action_button(_("Ask"), self.vision_ask, _("Every ticked agent gets the pictures and "
@@ -611,7 +612,7 @@ class LocalTab(GpuGuard):
         row.append(self.local_model_b)
         row.append(self.small_button(_("Look again"), self.local_scan))
         self.local_prompt = self.prompt_view(LOCAL_PROMPT)     # the question first, as on the other tabs
-        box.append(self.local_prompt)
+        box.append(dictation.with_mic(self.local_prompt))
         box.append(row)
         self.local_ask_button = self.action_button(_("Ask"), self.local_ask)
         box.append(self.local_ask_button)

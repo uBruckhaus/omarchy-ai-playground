@@ -14,6 +14,7 @@ from pathlib import Path
 from gi.repository import Gio, GLib, Gtk
 
 import ai_core
+import dictation
 import picture_gen
 from tabs import VISION_PROMPT
 from i18n import N_, _
@@ -44,7 +45,7 @@ class GenerateTab:
         box.append(self.gen_setup)
 
         self.gen_prompt = self.prompt_view(GENERATE_PROMPT)
-        box.append(self.gen_prompt)
+        box.append(dictation.with_mic(self.gen_prompt))
         row = Gtk.Box(spacing=8)
         row.add_css_class("am-chess-controls")
         self.gen_size = Gtk.DropDown.new_from_strings([_(label) for _k, label in SIZE_CHOICES])

@@ -2557,5 +2557,6 @@
  "The note could not be saved: {0}": "Nie udało się zapisać notatki: {0}",
  "The window drew nothing.": "Okno niczego nie narysowało.",
  "This pattern is made for Conway's Life. Under the rule of “{0}” it may grow, fall apart or stand still instead; choose Conway's Life above to see it as described.": "Ten wzór jest stworzony dla Gry w życie Conwaya. Przy regule „{0}” może zamiast tego rosnąć, rozpadać się lub stać w miejscu; wybierz u góry Conway's Life, aby zobaczyć go tak, jak opisano.",
- "All links ({0})": "Wszystkie linki ({0})"
+ "All links ({0})": "Wszystkie linki ({0})",
+ "Speak instead of typing: {0} writes what you say at the cursor. Click again to stop.": "Mów zamiast pisać: {0} wpisuje to, co mówisz, w miejscu kursora. Kliknij ponownie, aby zakończyć."
 }

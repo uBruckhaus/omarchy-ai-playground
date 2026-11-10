@@ -98,6 +98,10 @@ is stopped again (unless another program uses it).
 - AI Playground never asks for root or administrator rights and never reads credential files.
 - **Settings and saved games** are kept in `~/.config/omarchy/ai-playground/` (`settings.json`,
   `games.json`), written atomically and readable only by you.
+- **Dictation**: the 🎤 beside a question field starts the desktop's own dictation (Omarchy:
+  `omarchy-dictation`, the backend set in Setup › Defaults › Dictation, e.g. Superwhisper); that program
+  writes what you say at the cursor. AI Playground records nothing itself; whether the words are
+  recognised on this PC or by a cloud service is the backend's setting. No backend set up: no 🎤.
 - **Screenshots** (F12) are saved only when you press it, in `~/Pictures/AI Playground/` as new files
   readable only by you (a note you type goes next to it); the window draws itself, no screenshot
   program is started and nothing is sent anywhere.
@@ -171,6 +175,7 @@ rm -rf ~/.config/omarchy/ai-playground ~/.local/share/ai-playground
 | `analyze_tab.py`, `analyze.py`, `online_models.py` | Analyze: the tab; its tests and the facts read from the agents' settings |
 | `frame_check.py`, `local_hold.py` | Setting a local model up for pictures; keeping a local LLM up during a job |
 | `tabs.py`, `agent_run.py`, `gpu_check.py` | Speed and cost, Head to head, Vision, Local LLMs; asking an agent once; GPU memory check |
+| `dictation.py` | The 🎤 beside the question fields: the desktop's dictation (Omarchy: `omarchy-dictation`) |
 | `screenshot.py` | F12: a picture of the window and an optional note, in `~/Pictures/AI Playground/` |
 | `generate_tab.py`, `picture_gen.py` | Generate: the tab; setting up stable-diffusion.cpp and the model, making a picture |
 | `local_llm.py`, `loopback.py`, `netfetch.py` | Local LLM servers of your own account; bounded local HTTP |

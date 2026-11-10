@@ -139,6 +139,8 @@ class ThemeCss:
         .am-view-switch {{ margin-right: 4px; }}
         .am-card button.am-gear-btn, .am-headerbar button.am-gear-btn {{ border: 1px solid alpha({fg_hex}, 0.35);
             border-radius: {control}px; padding: 1px 4px; margin-right: 0; min-width: 24px; min-height: 22px; }}
+        button.am-dictate {{ background: {bg_hex}; }}
+        button.am-dictate:checked {{ color: {red_hex}; border-color: {red_hex}; background: alpha({red_hex}, 0.14); }}
         button.am-gear-btn.am-page-active {{ color: {accent_hex}; border-color: {accent_hex};
             background: alpha({accent_hex}, 0.14); }}
         .am-gear {{ font-family: "JetBrainsMono Nerd Font", "Symbols Nerd Font", monospace; font-size: 13px; }}
