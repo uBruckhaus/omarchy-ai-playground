@@ -99,6 +99,18 @@ class AgentPathsTest(unittest.TestCase):
         with mock.patch("shutil.which", return_value=None):
             self.assertEqual(agent_paths.find("codex", self.home), str(self.tool))
 
+    def test_link_target_with_dotdot_is_refused(self):
+        safe = self.home / "safe"
+        safe.mkdir()
+        real = safe / "agent"
+        real.write_text("#!/bin/sh\n")
+        real.chmod(0o755)
+        (self.home / "bridge").mkdir()
+        self.tool.unlink()
+        self.tool.symlink_to(str(self.home / "bridge" / ".." / "safe" / "agent"))
+        with mock.patch("shutil.which", return_value=None):
+            self.assertIsNone(agent_paths.find("codex", self.home))
+
 
 if __name__ == "__main__":
     unittest.main()

@@ -57,10 +57,14 @@ def _usable(path: Path) -> bool:
     if info.st_uid not in (os.getuid(), 0) or not _closed(path.parent):
         return False
     try:
-        target = Path(os.path.normpath(os.path.join(path.parent, os.readlink(path))))
+        written = os.readlink(path)
     except OSError:
         return False
-    return _program(target)
+    # Taken as written: no "..", no "." (the kernel would resolve each part before it), so the path
+    # checked is exactly the path the start goes through.
+    if any(part in ("..", ".") for part in written.split("/")):
+        return False
+    return _program(Path(path.parent, written))
 
 
 def find(name: str, home: Path | None = None) -> str | None:
