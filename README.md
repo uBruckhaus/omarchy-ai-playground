@@ -98,10 +98,13 @@ is stopped again (unless another program uses it).
 - AI Playground never asks for root or administrator rights and never reads credential files.
 - **Settings and saved games** are kept in `~/.config/omarchy/ai-playground/` (`settings.json`,
   `games.json`), written atomically and readable only by you.
-- **Dictation**: the 🎤 beside a question field starts the desktop's own dictation (Omarchy:
-  `omarchy-dictation`, the backend set in Setup › Defaults › Dictation, e.g. Superwhisper); that program
-  writes what you say at the cursor. AI Playground records nothing itself; whether the words are
-  recognised on this PC or by a cloud service is the backend's setting. No backend set up yet: a click on the 🎤 explains how (Setup › Defaults › Dictation) and can open that menu; away from Omarchy there is no 🎤.
+- **Dictation**: the 🎤 beside a question field works like Omarchy's dictation key: it puts the
+  cursor at the end of the field and runs `omarchy-dictation toggle` (the backend set in Setup ›
+  Defaults › Dictation, e.g. Superwhisper), which starts dictation or stops it when it runs; that
+  program writes what you say at the cursor and shows its own recording indicator. AI Playground
+  keeps no recording state and records nothing itself; whether the words are recognised on this PC
+  or by a cloud service is the backend's setting. No backend set up yet: a click on the 🎤 explains
+  how (Setup › Defaults › Dictation) and can open that menu; away from Omarchy there is no 🎤.
 - **Screenshots** (F12) are saved only when you press it, in `~/Pictures/AI Playground/` as new files
   readable only by you (a note you type goes next to it); the window draws itself, no screenshot
   program is started and nothing is sent anywhere.
@@ -149,6 +152,8 @@ is stopped again (unless another program uses it).
     only when no program is connected to it; otherwise it reads the line the next time it starts.
 - **ⓘ Information** opens fixed `https://plugins.omarchy.org/plugin.html?id=…` addresses in your
   browser on a click.
+- **Automaton**: the ⓘ windows' "All links" list opens fixed `https://en.wikipedia.org/wiki/…` addresses
+  (listed in `automaton_info.py`) in your browser, only when you choose one.
 
 ## Remove
 

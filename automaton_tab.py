@@ -8,6 +8,7 @@ from __future__ import annotations
 from gi.repository import Adw, Gdk, GLib, Gtk
 
 import math
+import time
 
 import ai_core
 import corners
@@ -18,7 +19,7 @@ from i18n import N_, _
 OWN_RULE = "Own rule…"
 DRAW = "Draw cells"
 DENSITIES = (.1, .2, .3, .4, .5)
-MAX_COLS, MAX_ROWS = 600, 400          # at most 240 000 cells, whatever the window's size
+MAX_COLS, MAX_ROWS = 300, 200          # at most 60 000 cells (about 50 ms a generation), whatever the window's size
 
 # Rules under which the Life patterns (glider, pulsar, gun …) behave as described.
 LIFE_LIKE = ("B3/S23", "B36/S23")
@@ -239,10 +240,16 @@ class AutomatonTab:
         if getattr(self, "au_playing", False):
             self.au_timer = GLib.timeout_add(max(16, 1000 // self.au_speed), self.au_tick)
 
+    def au_next(self, spent: float):
+        """The next generation: at the chosen speed, but never sooner than twice the time the last
+        one took, so the window always has the main loop at least half the time."""
+        self.au_timer = GLib.timeout_add(max(16, 1000 // self.au_speed, int(spent * 2000)), self.au_tick)
+
     def au_tick(self) -> bool:
         # Only while the tab is in view: a hidden tab costs nothing.
         if self.page_name() != "automaton":
             return True
+        started = time.monotonic()
         changed = self.au_grid.step()
         if not changed or self.au_grid.empty:
             self.au_playing = False          # nothing moves any more: a still life does not burn CPU
@@ -252,7 +259,8 @@ class AutomatonTab:
         self.au_area.queue_draw()
         if self.au_grid.generation % 5 == 0:
             self.au_refresh(draw=False)
-        return True
+        self.au_next(time.monotonic() - started)
+        return False
 
     def au_play_pause(self):
         self.au_playing = not getattr(self, "au_playing", False)

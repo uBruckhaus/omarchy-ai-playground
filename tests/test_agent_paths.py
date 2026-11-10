@@ -44,6 +44,26 @@ class AgentPathsTest(unittest.TestCase):
             self.assertIsNone(agent_paths.find("../codex", self.home))
             self.assertIsNone(agent_paths.find("nothing-here", self.home))
 
+    def test_folder_others_may_change_is_refused(self):
+        shared = self.home / ".local/share/mise/shims"
+        shared.chmod(0o777)                                   # another account could swap the program
+        self.addCleanup(lambda: shared.chmod(0o755))
+        with mock.patch("shutil.which", return_value=None):
+            self.assertIsNone(agent_paths.find("codex", self.home))
+
+    def test_link_into_a_folder_others_may_change_is_refused(self):
+        elsewhere = self.home / "shared"
+        elsewhere.mkdir()
+        real = elsewhere / "codex-real"
+        real.write_text("#!/bin/sh\n")
+        real.chmod(0o755)
+        self.tool.unlink()
+        self.tool.symlink_to(real)
+        elsewhere.chmod(0o777)
+        self.addCleanup(lambda: elsewhere.chmod(0o755))
+        with mock.patch("shutil.which", return_value=None):
+            self.assertIsNone(agent_paths.find("codex", self.home))
+
 
 if __name__ == "__main__":
     unittest.main()

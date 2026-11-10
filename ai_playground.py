@@ -40,7 +40,6 @@ from gi.repository import Adw, Gdk, Gio, GLib, Gtk, Pango  # noqa: E402
 
 import ai_core  # noqa: E402
 import corners  # noqa: E402
-import dictation  # noqa: E402
 import frame_check  # noqa: E402
 import i18n  # noqa: E402
 import local_hold  # noqa: E402
@@ -264,7 +263,6 @@ class Playground(Adw.Application, TextGuard, ScreenshotKey, Host, ThemeCss, Anal
         # Nothing started here outlives the app: agents still answering, a vision file still
         # downloading, a local LLM started for a job.
         ai_core.stop_running()
-        dictation.stop_all()                           # no dictation goes on into another window
         frame_check.stop_all()
         local_hold.stop_all()
         self.quit()
