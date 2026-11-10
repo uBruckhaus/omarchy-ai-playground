@@ -7,6 +7,8 @@ from __future__ import annotations
 
 from gi.repository import Gdk, GLib, Gtk
 
+import math
+
 import ai_core
 from automaton import NAMED_RULES, PATTERNS, Automaton, Rule, rule_name
 from i18n import _
@@ -17,6 +19,26 @@ DENSITIES = (.1, .2, .3, .4, .5)
 INTRO = ("A cellular automaton: each cell lives or dies by how many of its eight neighbours are alive. Draw cells "
          "with the mouse (the right button erases), place a pattern, or fill at random, then Play. The rule can be "
          "changed while it runs: B is how many neighbours bring a cell to life, S how many keep it alive.")
+
+
+# The colours by age: they tell what a cell is doing. Born now is green; young cells (what moves,
+# gliders, oscillators) go from yellow to orange; settled ones turn cyan; what has stood still a
+# long time (still lifes) is violet. A cell that has just died leaves a faint red trace.
+BORN, YOUNG, ACTIVE, SETTLED, STILL, DIED = "#4ade80", "#facc15", "#fb923c", "#22d3ee", "#a78bfa", "#f87171"
+STOPS = ((1, BORN), (3, YOUNG), (8, ACTIVE), (25, SETTLED), (80, STILL))
+LEGEND = ((BORN, "Born"), (YOUNG, "Young: moves or changes"), (ACTIVE, "Active"), (SETTLED, "Settled"),
+          (STILL, "Standing still"), (DIED, "Just died"))
+
+
+def age_color(age: int) -> tuple:
+    """The colour of a live cell of this age (on a log scale: the first generations change quickly)."""
+    if age <= STOPS[0][0]:
+        return _rgb(STOPS[0][1])
+    for (a0, c0), (a1, c1) in zip(STOPS, STOPS[1:]):
+        if age <= a1:
+            t = (math.log(age) - math.log(a0)) / (math.log(a1) - math.log(a0))
+            return tuple(p + (q - p) * t for p, q in zip(_rgb(c0), _rgb(c1)))
+    return _rgb(STOPS[-1][1])
 
 
 def _rgb(hex_color: str, fallback=(0.5, 0.5, 0.5)):
@@ -89,6 +111,14 @@ class AutomatonTab:
         self.au_speed_label = Gtk.Label()
         self.au_speed_label.add_css_class("am-hint")
         row.append(self.au_speed_label)
+        self.au_by_age = ai_core.setting("automaton_colors") == "age"
+        self.au_colors_choice = Gtk.DropDown.new_from_strings([_("Colours by age"), _("One colour")])
+        self.au_colors_choice.set_selected(0 if self.au_by_age else 1)
+        self.au_colors_choice.set_tooltip_text(
+            _("By age: what is born, moves or stands still and what has just died, each in its own colour"))
+        self.au_colors_choice.set_margin_start(8)
+        self.au_colors_choice.connect("notify::selected", lambda d, *_a: self.au_set_colors(d.get_selected() == 0))
+        row.append(self.au_colors_choice)
         wrap = Gtk.CheckButton(label=_("Edges wrap"), active=self.au_grid.wrap, margin_start=8)
         wrap.set_tooltip_text(_("On: what leaves at one edge comes back at the other. Off: outside the grid is dead."))
         wrap.connect("toggled", lambda b: (setattr(self.au_grid, "wrap", b.get_active()),
@@ -112,6 +142,20 @@ class AutomatonTab:
         self.au_size_hint.add_css_class("am-hint")
         row.append(self.au_size_hint)
         box.append(row)
+
+        # What the colours mean, while they are on.
+        self.au_legend = Gtk.Box(spacing=16, visible=self.au_by_age)
+        for color, text in LEGEND:
+            item = Gtk.Box(spacing=6)
+            swatch = Gtk.DrawingArea(content_width=11, content_height=11, valign=Gtk.Align.CENTER)
+            swatch.set_draw_func(lambda _a, cr, w, h, c=color: (cr.set_source_rgba(*_rgb(c), .35 if c == DIED else 1),
+                                                                cr.rectangle(0, 0, w, h), cr.fill()))
+            item.append(swatch)
+            label = Gtk.Label(label=_(text))
+            label.add_css_class("am-hint")
+            item.append(label)
+            self.au_legend.append(item)
+        box.append(self.au_legend)
 
         # The grid fills the rest of the tab.
         self.au_area = Gtk.DrawingArea(hexpand=True, vexpand=True, focusable=True)
@@ -181,6 +225,12 @@ class AutomatonTab:
     def au_random(self):
         self.au_grid.randomize(DENSITIES[self.au_density.get_selected()])
         self.au_refresh()
+
+    def au_set_colors(self, by_age: bool):
+        self.au_by_age = by_age
+        self.au_legend.set_visible(by_age)
+        self.save_setting(automaton_colors="age" if by_age else "plain")
+        self.au_area.queue_draw()
 
     def au_set_speed(self, speed: int):
         self.au_speed = max(1, min(60, speed))
@@ -322,7 +372,25 @@ class AutomatonTab:
             cr.stroke()
         inset = 1 if cell >= 8 else 0
         states = g.rule.states
-        for state in range(1, states):
+        if self.au_by_age:
+            # A faint red trace where a cell just died, then the live cells grouped by their colour.
+            cr.set_source_rgba(*_rgb(DIED), .35)
+            for i, d in enumerate(g.died):
+                if d:
+                    cr.rectangle((i % g.width) * cell + inset, (i // g.width) * cell + inset, cell - 2 * inset,
+                                 cell - 2 * inset)
+            cr.fill()
+            groups: dict = {}
+            for i, c in enumerate(g.cells):
+                if c == 1:
+                    groups.setdefault(min(80, max(1, g.ages[i])), []).append(i)
+            for age, cells in groups.items():
+                cr.set_source_rgb(*age_color(age))
+                for i in cells:
+                    cr.rectangle((i % g.width) * cell + inset, (i // g.width) * cell + inset, cell - 2 * inset,
+                                 cell - 2 * inset)
+                cr.fill()
+        for state in range(1 if not self.au_by_age else 2, states):
             if state == 1:
                 cr.set_source_rgb(*accent)
             else:                                 # dying states fade from yellow to the background

@@ -123,15 +123,32 @@ class Automaton:
             raise ValueError("empty grid")
         self.width, self.height, self.rule, self.wrap = width, height, rule, wrap
         self.cells = bytearray(width * height)
+        # Generations each live cell has been alive (1: just born), and where a cell just died:
+        # the colours by age (what moves is young, what stands still grows old).
+        self.ages = [0] * (width * height)
+        self.died = bytearray(width * height)
         self.generation = 0
         self.history: list = []
 
     def cell(self, x: int, y: int) -> int:
         return self.cells[y * self.width + x]
 
+    def age(self, x: int, y: int) -> int:
+        return self.ages[y * self.width + x]
+
+    def just_died(self, x: int, y: int) -> bool:
+        return self.died[y * self.width + x] == 1
+
     def set(self, x: int, y: int, state: int) -> None:
         if 0 <= x < self.width and 0 <= y < self.height:
-            self.cells[y * self.width + x] = max(0, min(state, self.rule.states - 1))
+            i = y * self.width + x
+            v = max(0, min(state, self.rule.states - 1))
+            if v == 1 and self.cells[i] != 1:
+                self.ages[i] = 1                 # drawn: a newborn
+            if v != 1:
+                self.ages[i] = 0
+            self.died[i] = 0
+            self.cells[i] = v
 
     @property
     def population(self) -> int:
@@ -145,6 +162,9 @@ class Automaton:
         """One generation; whether anything changed."""
         w, h, cells, rule = self.width, self.height, self.cells, self.rule
         nxt = bytearray(len(cells))
+        ages = [0] * len(cells)
+        died = bytearray(len(cells))
+        old_ages = self.ages
         changed = False
         for y in range(h):
             for x in range(w):
@@ -171,9 +191,13 @@ class Automaton:
                 else:
                     v = 0 if c + 1 >= rule.states else c + 1
                 nxt[i] = v
+                if v == 1:
+                    ages[i] = min(old_ages[i] + 1, 65535) if c == 1 else 1
+                elif c == 1:
+                    died[i] = 1
                 if v != c:
                     changed = True
-        self.cells = nxt
+        self.cells, self.ages, self.died = nxt, ages, died
         self.generation += 1
         self._remember()
         return changed
@@ -184,12 +208,16 @@ class Automaton:
 
     def clear(self) -> None:
         self.cells = bytearray(self.width * self.height)
+        self.ages = [0] * (self.width * self.height)
+        self.died = bytearray(self.width * self.height)
         self.generation = 0
         self.history.clear()
 
     def randomize(self, density: float, seed=None) -> None:
         r = random.Random(seed)
         self.cells = bytearray(1 if r.random() < density else 0 for _ in range(self.width * self.height))
+        self.ages = list(self.cells)
+        self.died = bytearray(self.width * self.height)
         self.generation = 0
         self.history = [self.population]
 
@@ -205,11 +233,13 @@ class Automaton:
         """A new size; cells stay where they are from the top left (what falls outside is lost)."""
         if width < 1 or height < 1 or (width == self.width and height == self.height):
             return
-        nxt = bytearray(width * height)
+        nxt, ages, died = bytearray(width * height), [0] * (width * height), bytearray(width * height)
         for y in range(min(self.height, height)):
             for x in range(min(self.width, width)):
                 nxt[y * width + x] = self.cells[y * self.width + x]
-        self.cells, self.width, self.height = nxt, width, height
+                ages[y * width + x] = self.ages[y * self.width + x]
+                died[y * width + x] = self.died[y * self.width + x]
+        self.cells, self.ages, self.died, self.width, self.height = nxt, ages, died, width, height
 
     def set_rule(self, rule: Rule) -> None:
         """A new rule; cells in states the new rule does not have become dead."""

@@ -108,5 +108,32 @@ class MoreTest(unittest.TestCase):
         self.assertEqual(len(list(gun.cells())), 36)
 
 
+class AgeTest(unittest.TestCase):
+    def test_block_grows_old_blinker_stays_young_and_leaves_traces(self):
+        block = grid(["....", ".OO.", ".OO.", "...."])
+        self.assertEqual(block.age(1, 1), 1)
+        for _ in range(5):
+            block.step()
+        self.assertEqual(block.age(1, 1), 6)
+        blinker = grid([".....", ".....", ".OOO.", ".....", "....."])
+        blinker.step()
+        self.assertEqual(blinker.age(2, 2), 2)
+        self.assertEqual(blinker.age(2, 1), 1)
+        self.assertTrue(blinker.just_died(1, 2))
+        self.assertFalse(blinker.just_died(2, 2))
+        blinker.step()
+        self.assertFalse(blinker.just_died(1, 2))
+
+    def test_draw_erase_clear(self):
+        a = Automaton(4, 4, Rule.parse("B3/S23"))
+        a.set(1, 1, 1)
+        self.assertEqual(a.age(1, 1), 1)
+        a.set(1, 1, 0)
+        self.assertEqual(a.age(1, 1), 0)
+        a.randomize(.5, seed=2)
+        a.clear()
+        self.assertEqual(sum(a.ages), 0)
+
+
 if __name__ == "__main__":
     unittest.main()

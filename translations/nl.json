@@ -2384,5 +2384,13 @@
  "Step": "Stap",
  "Use rule": "Regel toepassen",
  "What a click does: draw (the right button erases) or place a pattern": "Wat een klik doet: tekenen (rechts wist) of een patroon plaatsen",
- "{0} / s": "{0} / s"
+ "{0} / s": "{0} / s",
+ "Colours by age": "Kleuren naar leeftijd",
+ "One colour": "Eén kleur",
+ "By age: what is born, moves or stands still and what has just died, each in its own colour": "Naar leeftijd: wat ontstaat, beweegt of stilstaat en wat net is gestorven, elk in een eigen kleur",
+ "Born": "Geboren",
+ "Young: moves or changes": "Jong: beweegt of verandert",
+ "Settled": "Gestabiliseerd",
+ "Standing still": "Staat stil",
+ "Just died": "Net gestorven"
 }

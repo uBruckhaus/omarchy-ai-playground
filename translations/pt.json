@@ -2384,5 +2384,13 @@
  "Step": "Passo",
  "Use rule": "Aplicar regra",
  "What a click does: draw (the right button erases) or place a pattern": "Ação do clique: desenhar (o botão direito apaga) ou colocar um padrão",
- "{0} / s": "{0} / s"
+ "{0} / s": "{0} / s",
+ "Colours by age": "Cores por idade",
+ "One colour": "Uma só cor",
+ "By age: what is born, moves or stands still and what has just died, each in its own colour": "Por idade: o que nasce, se move ou fica parado e o que acabou de morrer, cada um na sua cor",
+ "Born": "Nascida",
+ "Young: moves or changes": "Jovem: move-se ou muda",
+ "Settled": "Estabilizada",
+ "Standing still": "Parada",
+ "Just died": "Acabou de morrer"
 }

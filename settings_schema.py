@@ -70,6 +70,7 @@ SCHEMA: dict[str, Setting] = {
     "automaton_rule": Setting("B3/S23", _text, "AI Playground › Automaton › Rule (B/S or B/S/C notation)"),
     "automaton_speed": Setting(10, lambda v: isinstance(v, int) and not isinstance(v, bool) and 1 <= v <= 60,
                                "AI Playground › Automaton › Speed: generations per second"),
+    "automaton_colors": Setting("age", _one_of("age", "plain"), "AI Playground › Automaton › Colours: by age or one colour"),
     "automaton_wrap": Setting(True, _bool, "AI Playground › Automaton › Edges wrap"),
     "automaton_cell": Setting(10, lambda v: isinstance(v, int) and not isinstance(v, bool) and 4 <= v <= 24,
                               "AI Playground › Automaton › Cell size in pixels"),
