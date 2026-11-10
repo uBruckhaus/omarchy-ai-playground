@@ -13,11 +13,16 @@ import ai_core
 import corners
 from automaton import MIXER_NAME, NAMED_RULES, PATTERNS, Automaton, Rule, find_pattern, is_materials_rule, rule_name
 from automaton_info import MATERIALS_NOTE, PATTERN_INFO, RULE_INFO
-from i18n import _
+from i18n import N_, _
 
 OWN_RULE = "Own rule…"
 DRAW = "Draw cells"
 DENSITIES = (.1, .2, .3, .4, .5)
+# Rules under which the Life patterns (glider, pulsar, gun …) behave as described.
+LIFE_LIKE = ("B3/S23", "B36/S23")
+PATTERN_NOTE = N_("This pattern is made for Conway's Life. Under the rule of “{0}” it may grow, fall apart or "
+                  "stand still instead; choose Conway's Life above to see it as described.")
+
 INTRO = ("A cellular automaton: each cell lives or dies by how many of its eight neighbours are alive. Draw cells "
          "with the mouse (the right button erases), place a pattern, or fill at random, then Play. The rule can be "
          "changed while it runs: B is how many neighbours bring a cell to life, S how many keep it alive.")
@@ -299,10 +304,24 @@ class AutomatonTab:
             self.au_explain(_(name) if materials else name, NAMED_RULES[name], RULE_INFO[name], materials=materials)
 
     def au_explain_pattern(self):
+        """The second ⓘ follows the scenario too: drawing explains what to look for and try in the
+        chosen scenario (and Try it sets that up); a Life pattern under another rule says so."""
         tool = self.au_tools[self.au_tool.get_selected()]
-        self.au_explain(_(tool), "", PATTERN_INFO["draw" if tool == DRAW else tool])
+        scenario = self.au_rule_names[self.au_rule.get_selected()]
+        scenario_title = _(scenario) if scenario in (OWN_RULE, MIXER_NAME) or is_materials_rule(scenario) else scenario
+        if tool == DRAW:
+            info = dict(PATTERN_INFO["draw"])
+            if scenario != OWN_RULE and scenario in RULE_INFO:
+                own = RULE_INFO[scenario]
+                info.update({"watch": own["watch"], "try": own["try"], "setup": own["setup"]})
+            self.au_explain(f"{_(tool)} · {scenario_title}", "", info)
+            return
+        note = ""
+        if self.au_grid.mixing or self.au_grid.rule.notation not in LIFE_LIKE:
+            note = _(PATTERN_NOTE).format(scenario_title)
+        self.au_explain(_(tool), "", PATTERN_INFO[tool], note=note)
 
-    def au_explain(self, title: str, notation: str, info: dict, materials: bool = False):
+    def au_explain(self, title: str, notation: str, info: dict, materials: bool = False, note: str = ""):
         """What the scenario is, what to look for, how to try it; "Try it" sets it up and starts it."""
         from gi.repository import Adw, Pango
         dialog = Adw.AlertDialog(heading=title + (f"   {notation}" if notation else ""))
@@ -312,6 +331,8 @@ class AutomatonTab:
                  ("media-playback-start-symbolic", _("Try this"), info["try"])]
         if materials:
             parts.append(("applications-science-symbolic", _("Good to know"), MATERIALS_NOTE))
+        if note:
+            parts.append(("dialog-information-symbolic", _("Good to know"), note))
         for icon, heading, text in parts:
             part = Gtk.Box(spacing=10)
             part.append(Gtk.Image(icon_name=icon, valign=Gtk.Align.START))

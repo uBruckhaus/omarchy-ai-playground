@@ -2488,5 +2488,6 @@
  "What is wrong? (optional)": "Was stimmt nicht? (optional)",
  "The screenshot could not be saved: {0}": "Das Bildschirmfoto konnte nicht gespeichert werden: {0}",
  "The note could not be saved: {0}": "Die Notiz konnte nicht gespeichert werden: {0}",
- "The window drew nothing.": "Das Fenster hat nichts gezeichnet."
+ "The window drew nothing.": "Das Fenster hat nichts gezeichnet.",
+ "This pattern is made for Conway's Life. Under the rule of “{0}” it may grow, fall apart or stand still instead; choose Conway's Life above to see it as described.": "Dieses Muster ist für Conway's Life gemacht. Unter der Regel von „{0}“ kann es stattdessen wachsen, zerfallen oder stillstehen; wähle oben Conway's Life, um es wie beschrieben zu sehen."
 }

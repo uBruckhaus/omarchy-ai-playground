@@ -2555,5 +2555,6 @@
  "What is wrong? (optional)": "Co jest nie tak? (opcjonalnie)",
  "The screenshot could not be saved: {0}": "Nie udało się zapisać zrzutu ekranu: {0}",
  "The note could not be saved: {0}": "Nie udało się zapisać notatki: {0}",
- "The window drew nothing.": "Okno niczego nie narysowało."
+ "The window drew nothing.": "Okno niczego nie narysowało.",
+ "This pattern is made for Conway's Life. Under the rule of “{0}” it may grow, fall apart or stand still instead; choose Conway's Life above to see it as described.": "Ten wzór jest stworzony dla Gry w życie Conwaya. Przy regule „{0}” może zamiast tego rosnąć, rozpadać się lub stać w miejscu; wybierz u góry Conway's Life, aby zobaczyć go tak, jak opisano."
 }
