@@ -4,7 +4,8 @@ install_more.py; edit it there, not in a plugin.
 "More plugins by the same author": a card for each of the author's other
 marketplace plugins, with its glyph, name and a one-line explanation. A click
 opens the plugin's page in the Omarchy Plugin Marketplace. The URLs are fixed
-https addresses; nothing here is read from the network.
+https addresses; nothing here is read from the network (a caller may pass a list it read
+from the marketplace: build_cards(plugins=…)).
 """
 from urllib.parse import quote
 
@@ -25,6 +26,7 @@ PLUGINS = [
     ("ubruckhaus.llm-usage", "LLM Monitor", "\U000F061A", N_("Which local AI model holds your GPU memory")),
     ("ubruckhaus.ai-agents-map", "AI Agents Map", "\U000F06A9", N_("Your AI agents, models and MCP servers on one map")),
     ("ubruckhaus.simple-launcher-for-fools", "App Manager", "\U0000F00A", N_("Your apps in groups, with shortcuts and a dock")),
+    ("ubruckhaus.maprisma-launcher", "Maprisma Launcher", "\U000F14DE", N_("Apps, shortcuts and updates, with AI package advice")),
     ("ubruckhaus.simple-tile", "Workspace Presets", "\U000F056E", N_("Window limits and layouts per workspace")),
     ("ubruckhaus.hue-lights", "Hue Lights", "\U000F0335", N_("Philips Hue rooms and lights from the bar")),
     ("ubruckhaus.video-trans", "Video Trans", "\U0000F20A", N_("Live translated captions for any video or call")),
@@ -48,16 +50,18 @@ def open_page(plugin_id: str) -> None:
     Gio.AppInfo.launch_default_for_uri(url_for(plugin_id), None)
 
 
-def build_cards(own_id: str, prefix: str, on_opened=None, leave_out=()) -> Gtk.Widget:
+def build_cards(own_id: str, prefix: str, on_opened=None, leave_out=(), plugins=None) -> Gtk.Widget:
     """The heading and a two-column grid of cards, this plugin left out (and the ids in
     `leave_out`: a plugin shown on its own elsewhere on the page).
-    `on_opened` runs after a page was opened (the popup can hide)."""
+    `on_opened` runs after a page was opened (the popup can hide).
+    `plugins`: (id, name, glyph, text) to show instead of PLUGINS (a list read from the
+    marketplace elsewhere); a text in PLUGINS' English is translated, any other is shown as it is."""
     box = Gtk.Box(orientation=Gtk.Orientation.VERTICAL, spacing=10)
     heading = Gtk.Label(label=_(TITLE).upper(), xalign=0)
     heading.add_css_class(f"{prefix}-more-heading")
     box.append(heading)
     grid = Gtk.Grid(column_spacing=8, row_spacing=8, column_homogeneous=True)
-    shown = [p for p in PLUGINS if p[0] != own_id and p[0] not in leave_out]
+    shown = [p for p in (PLUGINS if plugins is None else plugins) if p[0] != own_id and p[0] not in leave_out]
     for index, (plugin_id, name, glyph, text) in enumerate(shown):
         card = Gtk.Button()
         card.add_css_class("flat")

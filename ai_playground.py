@@ -200,7 +200,11 @@ class Playground(Adw.Application, TextGuard, Host, ThemeCss, AnalyzeTab, ChessPa
         title = Gtk.Label(label=desktop.app_name(), xalign=0)
         title.add_css_class("am-title")
         header.append(title)
-        tabs = Gtk.Box(spacing=4, margin_start=12)
+        # The tabs wrap onto a second line in a narrow window, so ⓘ and the gear stay on screen.
+        tabs = Gtk.FlowBox(selection_mode=Gtk.SelectionMode.NONE, homogeneous=False, hexpand=True,
+                           valign=Gtk.Align.CENTER, column_spacing=4, row_spacing=4, margin_start=12,
+                           min_children_per_line=1, max_children_per_line=len(TABS))
+        tabs.add_css_class("am-tabs")
         self.tab_buttons = {}
         group = None
         for i, (key, label) in enumerate(TABS):
@@ -213,9 +217,9 @@ class Playground(Adw.Application, TextGuard, Host, ThemeCss, AnalyzeTab, ChessPa
             group = group or button
             button.connect("toggled", lambda b, k=key: b.get_active() and self.show_page(k))
             tabs.append(button)
+            tabs.get_last_child().set_focusable(False)   # the button takes focus, not its FlowBox cell
             self.tab_buttons[key] = button
         header.append(tabs)
-        header.append(Gtk.Box(hexpand=True))
         info = Gtk.Button(valign=Gtk.Align.CENTER)
         mark_i = Gtk.Label(label=more_plugins.INFO_GLYPH)
         mark_i.add_css_class("am-gear")
