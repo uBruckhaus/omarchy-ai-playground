@@ -23,6 +23,17 @@ LIFE_LIKE = ("B3/S23", "B36/S23")
 PATTERN_NOTE = N_("This pattern is made for Conway's Life. Under the rule of “{0}” it may grow, fall apart or "
                   "stand still instead; choose Conway's Life above to see it as described.")
 
+def merge_links(*groups) -> list:
+    """Links of several lists in order, each address once."""
+    seen, merged = set(), []
+    for group in groups:
+        for title_text, url in group:
+            if url not in seen:
+                seen.add(url)
+                merged.append((title_text, url))
+    return merged
+
+
 INTRO = ("A cellular automaton: each cell lives or dies by how many of its eight neighbours are alive. Draw cells "
          "with the mouse (the right button erases), place a pattern, or fill at random, then Play. The rule can be "
          "changed while it runs: B is how many neighbours bring a cell to life, S how many keep it alive.")
@@ -314,12 +325,17 @@ class AutomatonTab:
             if scenario != OWN_RULE and scenario in RULE_INFO:
                 own = RULE_INFO[scenario]
                 info.update({"watch": own["watch"], "try": own["try"], "setup": own["setup"]})
+            info["links"] = merge_links(RULE_INFO.get("own" if scenario == OWN_RULE else scenario, {}).get("links", ()),
+                                        PATTERN_INFO["draw"].get("links", ()))
             self.au_explain(f"{_(tool)} · {scenario_title}", "", info)
             return
         note = ""
         if self.au_grid.mixing or self.au_grid.rule.notation not in LIFE_LIKE:
             note = _(PATTERN_NOTE).format(scenario_title)
-        self.au_explain(_(tool), "", PATTERN_INFO[tool], note=note)
+        info = dict(PATTERN_INFO[tool])
+        info["links"] = merge_links(info.get("links", ()),
+                                    RULE_INFO.get("own" if scenario == OWN_RULE else scenario, {}).get("links", ()))
+        self.au_explain(_(tool), "", info, note=note)
 
     def au_explain(self, title: str, notation: str, info: dict, materials: bool = False, note: str = ""):
         """What the scenario is, what to look for, how to try it; "Try it" sets it up and starts it."""
@@ -352,12 +368,7 @@ class AutomatonTab:
             head = Gtk.Label(label=_("Read more").upper(), xalign=0)
             head.add_css_class("am-section-title")
             texts.append(head)
-            row = Gtk.FlowBox(selection_mode=Gtk.SelectionMode.NONE, column_spacing=6, row_spacing=6,
-                              max_children_per_line=4)
-            for title_text, url in info["links"]:
-                # Only the fixed https addresses of automaton_info, opened in the browser.
-                row.append(self.small_button(f"{title_text}  ↗", lambda u=url: self.au_open_page(u), url))
-            texts.append(row)
+            texts.append(self.au_links(info["links"]))
             part.append(texts)
             body.append(part)
         dialog.set_extra_child(body)
@@ -368,6 +379,32 @@ class AutomatonTab:
         dialog.set_close_response("close")
         dialog.connect("response", lambda _d, answer: answer == "try" and self.au_try(info["setup"]))
         dialog.present(self.window)
+
+    def au_links(self, links) -> Gtk.Widget:
+        """Read more: the first two links as ordinary links, and every link of this window in one
+        drop-down. Only the fixed https addresses of automaton_info, opened in the browser."""
+        from gi.repository import GLib
+        box = Gtk.Box(orientation=Gtk.Orientation.VERTICAL, spacing=6)
+        for title_text, url in links[:2]:
+            link = Gtk.Label(xalign=0, wrap=True)
+            link.set_markup(f'<a href="{GLib.markup_escape_text(url)}">{GLib.markup_escape_text(title_text)}</a>  ↗')
+            link.set_tooltip_text(url)
+            link.connect("activate-link", lambda _l, uri: (self.au_open_page(uri), True)[1])
+            box.append(link)
+        if len(links) > 2:
+            names = [_("All links ({0})").format(len(links))] + [f"{t}  ↗" for t, _u in links]
+            choice = Gtk.DropDown.new_from_strings(names)
+            choice.set_halign(Gtk.Align.START)
+            choice.add_css_class("am-chess-controls")
+
+            def picked(drop, *_a):
+                index = drop.get_selected()
+                if index > 0:
+                    self.au_open_page(links[index - 1][1])
+                    drop.set_selected(0)            # the list stays a list, not a remembered choice
+            choice.connect("notify::selected", picked)
+            box.append(choice)
+        return box
 
     def au_open_page(self, url: str):
         if url.startswith("https://"):

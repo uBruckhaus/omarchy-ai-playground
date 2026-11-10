@@ -2489,5 +2489,6 @@
  "The screenshot could not be saved: {0}": "La capture n'a pas pu être enregistrée : {0}",
  "The note could not be saved: {0}": "La note n'a pas pu être enregistrée : {0}",
  "The window drew nothing.": "La fenêtre n'a rien dessiné.",
- "This pattern is made for Conway's Life. Under the rule of “{0}” it may grow, fall apart or stand still instead; choose Conway's Life above to see it as described.": "Ce motif est fait pour le Jeu de la vie de Conway. Avec la règle de « {0} », il peut grandir, se défaire ou rester immobile ; choisis Conway's Life en haut pour le voir comme décrit."
+ "This pattern is made for Conway's Life. Under the rule of “{0}” it may grow, fall apart or stand still instead; choose Conway's Life above to see it as described.": "Ce motif est fait pour le Jeu de la vie de Conway. Avec la règle de « {0} », il peut grandir, se défaire ou rester immobile ; choisis Conway's Life en haut pour le voir comme décrit.",
+ "All links ({0})": "Tous les liens ({0})"
 }

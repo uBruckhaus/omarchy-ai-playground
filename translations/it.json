@@ -2489,5 +2489,6 @@
  "The screenshot could not be saved: {0}": "Impossibile salvare lo screenshot: {0}",
  "The note could not be saved: {0}": "Impossibile salvare la nota: {0}",
  "The window drew nothing.": "La finestra non ha disegnato nulla.",
- "This pattern is made for Conway's Life. Under the rule of “{0}” it may grow, fall apart or stand still instead; choose Conway's Life above to see it as described.": "Questo schema è fatto per il Gioco della vita di Conway. Con la regola di «{0}» può crescere, disfarsi o restare fermo; scegli Conway's Life in alto per vederlo come descritto."
+ "This pattern is made for Conway's Life. Under the rule of “{0}” it may grow, fall apart or stand still instead; choose Conway's Life above to see it as described.": "Questo schema è fatto per il Gioco della vita di Conway. Con la regola di «{0}» può crescere, disfarsi o restare fermo; scegli Conway's Life in alto per vederlo come descritto.",
+ "All links ({0})": "Tutti i link ({0})"
 }
