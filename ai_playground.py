@@ -203,9 +203,12 @@ class Playground(Adw.Application, TextGuard, ScreenshotKey, Host, ThemeCss, Anal
         title = Gtk.Label(label=desktop.app_name(), xalign=0)
         title.add_css_class("am-title")
         header.append(title)
-        # The tabs wrap onto a second line in a narrow window, so the symbols at the right stay on
-        # screen; each line packs its buttons at their own width (Adw.WrapBox, no columns).
-        tabs = Adw.WrapBox(child_spacing=4, line_spacing=4, hexpand=True, valign=Gtk.Align.CENTER, margin_start=12)
+        # The tabs fill the header's width (a wide or maximized window gets wide tabs) and wrap onto
+        # a second line in a narrow one, so the symbols at the right stay on screen; every line
+        # fills the width on its own (Adw.WrapBox, no columns).
+        tabs = Adw.WrapBox(child_spacing=4, line_spacing=4, hexpand=True, valign=Gtk.Align.CENTER, margin_start=12,
+                           margin_end=8, justify=Adw.JustifyMode.FILL)
+        tabs.add_tick_callback(self.fit_tabs)
         self.tab_buttons = {}
         group = None
         for i, (key, label) in enumerate(TABS):
@@ -237,6 +240,15 @@ class Playground(Adw.Application, TextGuard, ScreenshotKey, Host, ThemeCss, Anal
             header.append(button)
             self.page_buttons[page] = button
         return header
+
+    @staticmethod
+    def fit_tabs(tabs, *_args) -> bool:
+        """All tabs on one line: that line fills the header. Wrapped: the full lines fill it, a short
+        last line (one tab alone) keeps its buttons' own width."""
+        one_line = tabs.get_width() >= tabs.measure(Gtk.Orientation.HORIZONTAL, -1)[1]
+        if tabs.get_justify_last_line() != one_line:
+            tabs.set_justify_last_line(one_line)
+        return True
 
     def toast(self, text: str):
         toast = Adw.Toast(title=GLib.markup_escape_text(text), timeout=5)
