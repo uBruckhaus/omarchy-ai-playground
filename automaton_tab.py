@@ -75,6 +75,7 @@ class AutomatonTab:
     def build_automaton_tab(self) -> Gtk.Widget:
         box = Gtk.Box(orientation=Gtk.Orientation.VERTICAL, spacing=ai_core.GAP)
         self.tab_intro(box, _("Automaton"), _(INTRO))
+        self.au_intro = box.get_last_child().get_last_child()     # tells what the chosen scenario does
         self.au_speed = int(ai_core.setting("automaton_speed"))
         self.au_cell = int(ai_core.setting("automaton_cell"))
         try:
@@ -97,6 +98,7 @@ class AutomatonTab:
         name = rule_name(rule)
         self.au_rule.set_selected(self.au_rule_names.index(name) if name else len(self.au_rule_names) - 1)
         self.au_rule.connect("notify::selected", lambda *_a: self.au_pick_rule())
+        self.au_show_scenario()                        # the saved scenario's text from the start
         row.append(self.au_group(self.au_rule,
                                  self.icon_button("help-about-symbolic", self.au_explain_rule, _("About this rule"))))
         self.au_rule_text = Gtk.Entry(text=rule.notation, width_chars=12, placeholder_text="B3/S23")
@@ -383,8 +385,16 @@ class AutomatonTab:
 
     # --- the rule ----------------------------------------------------------------------------------
 
+    def au_show_scenario(self):
+        """The text under the heading follows the chosen scenario (its "What happens"); with an own
+        rule it is the tab's general explanation."""
+        name = self.au_rule_names[self.au_rule.get_selected()]
+        info = RULE_INFO.get(name) if name != OWN_RULE else None
+        self.au_intro.set_label(_(info["what"]) if info else _(INTRO))
+
     def au_pick_rule(self):
         name = self.au_rule_names[self.au_rule.get_selected()]
+        self.au_show_scenario()
         self.au_grid.mixing = name == MIXER_NAME
         if name == MIXER_NAME:
             self.au_grid.fill_halves()      # resin above, hardener below: ready for the first element
@@ -408,6 +418,7 @@ class AutomatonTab:
         index = self.au_rule_names.index(name)
         if self.au_rule.get_selected() != index:
             self.au_rule.set_selected(index)
+        self.au_show_scenario()
         self.au_refresh()
 
     # --- drawing -----------------------------------------------------------------------------------
