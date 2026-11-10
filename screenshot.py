@@ -24,31 +24,66 @@ def folder() -> Path:
     return Path(pictures or Path.home() / "Pictures") / "AI Playground"
 
 
-def free_name(where: Path, stamp: str) -> Path:
-    """ai-playground-<stamp>.png, or -2, -3 … when one already has that name."""
-    path = where / f"ai-playground-{stamp}.png"
-    n = 2
-    while path.exists() or path.with_suffix(".txt").exists():
-        path = where / f"ai-playground-{stamp}-{n}.png"
+def private_folder(where: Path) -> int:
+    """A handle on our screenshot folder: made 0700 when missing, and only a real folder (not a
+    link) owned by this user and not writable by others is used. The caller closes the handle."""
+    where.parent.mkdir(parents=True, exist_ok=True)
+    try:
+        os.mkdir(where, 0o700)
+    except FileExistsError:
+        pass
+    fd = os.open(where, os.O_RDONLY | os.O_DIRECTORY | os.O_NOFOLLOW | os.O_CLOEXEC)
+    info = os.fstat(fd)
+    if info.st_uid != os.getuid() or info.st_mode & 0o022:
+        os.close(fd)
+        raise PermissionError(f"{where} is not a private folder of yours")
+    return fd
+
+
+def _taken(fd: int, name: str) -> bool:
+    try:
+        os.stat(name, dir_fd=fd, follow_symlinks=False)
+        return True
+    except FileNotFoundError:
+        return False
+
+
+def free_name(fd: int, stamp: str) -> str:
+    """ai-playground-<stamp>.png, or -2, -3 … when it or its note already exists in the folder."""
+    name, n = f"ai-playground-{stamp}.png", 2
+    while _taken(fd, name) or _taken(fd, name[:-4] + ".txt"):
+        name = f"ai-playground-{stamp}-{n}.png"
         n += 1
-    return path
+    return name
 
 
-def write_new(path: Path, data: bytes):
-    """A new file of our own (never through a link, never over an existing file)."""
-    fd = os.open(path, os.O_WRONLY | os.O_CREAT | os.O_EXCL | os.O_NOFOLLOW, 0o600)
-    with os.fdopen(fd, "wb") as out:
-        out.write(data)
+def write_new(fd: int, name: str, data: bytes):
+    """A new file of our own in the folder (never through a link, never over an existing file);
+    written completely or not left behind at all."""
+    out = os.open(name, os.O_WRONLY | os.O_CREAT | os.O_EXCL | os.O_NOFOLLOW | os.O_CLOEXEC, 0o600, dir_fd=fd)
+    try:
+        view = memoryview(data)
+        while view:
+            view = view[os.write(out, view):]
+        os.fsync(out)
+    except BaseException:
+        os.close(out)
+        os.unlink(name, dir_fd=fd)
+        raise
+    os.close(out)
 
 
 def save_note(picture: Path, text: str) -> Path | None:
-    """The note next to the picture (same name, .txt); no text, no file."""
+    """The note next to the picture (same name, .txt); no text, no file. The folder is checked again."""
     text = text.strip()[:NOTE_LIMIT]
     if not text:
         return None
-    note = picture.with_suffix(".txt")
-    write_new(note, (text + "\n").encode("utf-8"))
-    return note
+    fd = private_folder(picture.parent)
+    try:
+        write_new(fd, picture.stem + ".txt", (text + "\n").encode("utf-8"))
+    finally:
+        os.close(fd)
+    return picture.with_suffix(".txt")
 
 
 class ScreenshotKey:
@@ -70,9 +105,13 @@ class ScreenshotKey:
                 raise OSError(_("The window drew nothing."))
             texture = window.get_renderer().render_texture(node, None)
             where = folder()
-            where.mkdir(parents=True, exist_ok=True, mode=0o700)
-            path = free_name(where, time.strftime("%Y%m%d-%H%M%S"))
-            write_new(path, texture.save_to_png_bytes().get_data())
+            fd = private_folder(where)
+            try:
+                name = free_name(fd, time.strftime("%Y%m%d-%H%M%S"))
+                write_new(fd, name, texture.save_to_png_bytes().get_data())
+            finally:
+                os.close(fd)
+            path = where / name
         except (OSError, GLib.Error) as error:
             self.toast(_("The screenshot could not be saved: {0}").format(getattr(error, "message", None) or error))
             return

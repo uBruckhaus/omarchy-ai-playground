@@ -18,6 +18,8 @@ from i18n import N_, _
 OWN_RULE = "Own rule…"
 DRAW = "Draw cells"
 DENSITIES = (.1, .2, .3, .4, .5)
+MAX_COLS, MAX_ROWS = 600, 400          # at most 240 000 cells, whatever the window's size
+
 # Rules under which the Life patterns (glider, pulsar, gun …) behave as described.
 LIFE_LIKE = ("B3/S23", "B36/S23")
 PATTERN_NOTE = N_("This pattern is made for Conway's Life. Under the rule of “{0}” it may grow, fall apart or "
@@ -542,6 +544,7 @@ class AutomatonTab:
     def au_draw(self, _area, cr, width: int, height: int):
         cell = self.au_cell
         cols, rows = max(1, width // cell), max(1, height // cell)
+        cols, rows = min(cols, MAX_COLS), min(rows, MAX_ROWS)   # a huge window: a bounded grid
         g = self.au_grid
         if (cols, rows) != (g.width, g.height):
             g.resize(cols, rows)

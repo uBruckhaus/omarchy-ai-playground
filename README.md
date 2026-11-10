@@ -172,7 +172,7 @@ rm -rf ~/.config/omarchy/ai-playground ~/.local/share/ai-playground
 | `ai_playground.py`, `host.py` | The GTK4 app window, its tabs, settings and information pages |
 | `chess_page.py`, `chess_rules.py`, `chess_agent.py` | The chess tab: board, legal moves, asking an agent for a move |
 | `chess_import.py`, `chess_video.py` | Saved games, replay, PGN; reading a game from a video |
-| `analyze_tab.py`, `analyze.py`, `online_models.py` | Analyze: the tab; its tests and the facts read from the agents' settings |
+| `analyze_tab.py`, `analyze.py`, `online_models.py` | Analyze: the page behind the header's test-tube symbol; its tests and the facts read from the agents' settings |
 | `frame_check.py`, `local_hold.py` | Setting a local model up for pictures; keeping a local LLM up during a job |
 | `tabs.py`, `agent_run.py`, `gpu_check.py` | Speed and cost, Head to head, Vision, Local LLMs; asking an agent once; GPU memory check |
 | `dictation.py` | The 🎤 beside the question fields: the desktop's dictation (Omarchy: `omarchy-dictation`) |
