@@ -56,9 +56,11 @@ from text_guard import TextGuard  # noqa: E402
 from generate_tab import GenerateTab  # noqa: E402
 from theme_css import ThemeCss  # noqa: E402
 
-TABS = (("analyze", N_("Analyze")), ("chess", N_("Chess")), ("automaton", N_("Automaton")), ("speed", N_("Speed and cost")), ("duel", N_("Head to head")),
+TABS = (("chess", N_("Chess")), ("automaton", N_("Automaton")), ("speed", N_("Speed and cost")), ("duel", N_("Head to head")),
         ("vision", N_("Vision")), ("generate", N_("Generate")), ("local", N_("Local LLMs")))
+PAGES = ("analyze", "settings", "info", "games")   # opened from a header symbol, with ← Back · ⌫
 ICON = "\U000F0297"                    # Nerd Font gamepad: the header and the bar icon
+ANALYZE_GLYPH = "\U000F0668"           # Nerd Font test tube: the Analyze page's header symbol
 OWN_ID = "ubruckhaus.ai-playground"
 AGENTS_MAP_ID = "ubruckhaus.ai-agents-map"
 WINDOW_SIZE = (1100, 920)
@@ -75,7 +77,7 @@ def parse_args(argv: list) -> dict:
                 wanted[key] = words[i + 1]
             elif word.startswith(f"--{key}="):
                 wanted[key] = word.split("=", 1)[1]
-    if wanted["test"] not in {k for k, _l in TABS}:
+    if wanted["test"] not in {k for k, _l in TABS} | {"analyze"}:
         wanted["test"] = ""
     if not all(c.isalnum() or c in "-_." for c in wanted["agent"]) or len(wanted["agent"]) > 64:
         wanted["agent"] = ""
@@ -190,7 +192,7 @@ class Playground(Adw.Application, TextGuard, Host, ThemeCss, AnalyzeTab, ChessPa
         self.apply_theme_css()
         self.watch_theme()
         saved = ai_core.setting("playground_tab")
-        self.show_page(saved if saved in {k for k, _l in TABS} else "analyze")
+        self.show_page(saved if saved in {k for k, _l in TABS} else TABS[0][0])
 
     def build_header(self) -> Gtk.Widget:
         header = Gtk.Box(spacing=8)
@@ -220,6 +222,16 @@ class Playground(Adw.Application, TextGuard, Host, ThemeCss, AnalyzeTab, ChessPa
             tabs.get_last_child().set_focusable(False)   # the button takes focus, not its FlowBox cell
             self.tab_buttons[key] = button
         header.append(tabs)
+        analyze = Gtk.Button(valign=Gtk.Align.CENTER)
+        mark_a = Gtk.Label(label=ANALYZE_GLYPH)
+        mark_a.add_css_class("am-gear")
+        analyze.set_child(mark_a)
+        analyze.add_css_class("flat")
+        analyze.add_css_class("am-header-btn")
+        analyze.add_css_class("am-gear-btn")
+        analyze.set_tooltip_text(_("Analyze"))
+        analyze.connect("clicked", lambda *_a: self.show_page("analyze"))
+        header.append(analyze)
         info = Gtk.Button(valign=Gtk.Align.CENTER)
         mark_i = Gtk.Label(label=more_plugins.INFO_GLYPH)
         mark_i.add_css_class("am-gear")
@@ -268,7 +280,7 @@ class Playground(Adw.Application, TextGuard, Host, ThemeCss, AnalyzeTab, ChessPa
     def show_page(self, name: str):
         if self.stack.get_child_by_name(name) is None:
             return                                     # still being built (the chess tab opens its game)
-        if name not in ("settings", "info", "games"):
+        if name not in PAGES:
             self.last_tab = name
         self.stack.set_visible_child_name(name)
         for key, button in self.tab_buttons.items():
@@ -307,7 +319,7 @@ class Playground(Adw.Application, TextGuard, Host, ThemeCss, AnalyzeTab, ChessPa
             self.show_page("settings")
             return True
         # A page with a Back button: Esc and Backspace go back, unless a field on it is being edited.
-        if self.page_name() in ("settings", "info", "games") and keyval in (Gdk.KEY_Escape, Gdk.KEY_BackSpace) \
+        if self.page_name() in PAGES and keyval in (Gdk.KEY_Escape, Gdk.KEY_BackSpace) \
                 and not self.editing():
             self.show_page(getattr(self, "last_tab", "chess"))
             return True

@@ -1,4 +1,4 @@
-"""AI Playground's Analyze tab (the first one): pick an agent and one of its models, then Analyze
+"""AI Playground's Analyze page (the test-tube symbol in the header, beside ⓘ and Settings): pick an agent and one of its models, then Analyze
 shows what it can do, one card per capability with a big mark at the end of its heading (green ✓
 can, red ✗ cannot, yellow ! slowly, ? not stated), what was found and what it means (analyze: the
 tests and the facts)."""
@@ -18,10 +18,13 @@ from i18n import _
 class AnalyzeTab:
     def build_analyze_tab(self) -> Gtk.Widget:
         box = Gtk.Box(orientation=Gtk.Orientation.VERTICAL, spacing=ai_core.GAP)
-        self.tab_intro(box, _("Analyze"),
-                       _("What an agent can do with one of its models: text, pictures, chess videos, thinking time, "
-                         "chess, how much it keeps in mind. A few short test questions are asked (they may count "
-                         "against your plan); a local model is set up for pictures where it can be."))
+        self.page_head(box, _("Analyze"))              # a header symbol's page, like Settings
+        hint = Gtk.Label(label=_("What an agent can do with one of its models: text, pictures, chess videos, thinking "
+                                 "time, chess, how much it keeps in mind. A few short test questions are asked (they may "
+                                 "count against your plan); a local model is set up for pictures where it can be."),
+                         xalign=0, wrap=True)
+        hint.add_css_class("am-hint")
+        box.append(hint)
         row = Gtk.Box(spacing=8)
         row.add_css_class("am-chess-controls")
         self.an_agent = self.agent_dropdown(self.ready_agents)

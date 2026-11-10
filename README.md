@@ -32,7 +32,7 @@ the feature named: `yt-dlp`, `ffmpeg` and `ffprobe` (reading a chess game from a
 
 ## The tabs
 
-- **Analyze**: pick an agent and one of its models (its own, or another one it lists, local models
+- **Analyze** (the test-tube symbol in the header, beside ⓘ and the gear): pick an agent and one of its models (its own, or another one it lists, local models
   included). One card per capability (text, pictures, chess videos, thinking time, chess, how much it
   keeps in mind, making pictures) with a big mark at the end of its heading: green ✓ can, red ✗
   cannot, yellow ! only slowly, ? not stated. A few short test questions are asked (a small sum, a
@@ -66,7 +66,7 @@ the feature named: `yt-dlp`, `ffmpeg` and `ffprobe` (reading a chess game from a
   with a second model. When two local models would answer at once and might not fit in the graphics
   card's memory together, you are asked first.
 
-Ctrl+1 … Ctrl+8 switch tabs; Ctrl+, opens the settings (language, text size in the choice boxes,
+Ctrl+1 … Ctrl+7 switch tabs; Ctrl+, opens the settings (language, text size in the choice boxes,
 whether several local models may run at once). AI Playground speaks English, German, French,
 Spanish, Italian, Portuguese, Dutch and Polish.
 
