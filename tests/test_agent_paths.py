@@ -64,6 +64,26 @@ class AgentPathsTest(unittest.TestCase):
         with mock.patch("shutil.which", return_value=None):
             self.assertIsNone(agent_paths.find("codex", self.home))
 
+    def test_link_owned_by_someone_else_is_refused(self):
+        real = self.home / "codex-real"
+        real.write_text("#!/bin/sh\n")
+        real.chmod(0o755)
+        self.tool.unlink()
+        self.tool.symlink_to(real)
+        original = agent_paths.os.lstat
+
+        def lstat(path, *a, **k):
+            info = original(path, *a, **k)
+            if str(path) == str(self.tool):
+                return os.stat_result((info.st_mode, info.st_ino, info.st_dev, info.st_nlink, os.getuid() + 4242,
+                                       info.st_gid, info.st_size, int(info.st_atime), int(info.st_mtime),
+                                       int(info.st_ctime)))
+            return info
+        with mock.patch("shutil.which", return_value=None), mock.patch.object(agent_paths.os, "lstat", side_effect=lstat):
+            self.assertIsNone(agent_paths.find("codex", self.home))
+        with mock.patch("shutil.which", return_value=None):
+            self.assertEqual(agent_paths.find("codex", self.home), str(self.tool))   # our own link is fine
+
 
 if __name__ == "__main__":
     unittest.main()

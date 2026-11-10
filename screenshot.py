@@ -122,6 +122,7 @@ class ScreenshotKey:
                                  body=_("Saved as {0}").format(str(path).replace(str(Path.home()), "~", 1)))
         entry = Gtk.Entry(placeholder_text=_("What is wrong? (optional)"), activates_default=True,
                           max_length=NOTE_LIMIT)
+        self.guard_text_field(entry)                    # paste and drops only through bounded reads
         dialog.set_extra_child(entry)
         dialog.add_response("done", _("Done"))
         dialog.set_default_response("done")

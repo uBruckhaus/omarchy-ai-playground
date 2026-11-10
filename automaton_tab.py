@@ -242,7 +242,8 @@ class AutomatonTab:
 
     def au_next(self, spent: float):
         """The next generation: at the chosen speed, but never sooner than twice the time the last
-        one took, so the window always has the main loop at least half the time."""
+        one and its drawing took, so the window always has the main loop at least half the time."""
+        spent += getattr(self, "au_draw_spent", 0.0)     # the last drawing ran on the same thread
         self.au_timer = GLib.timeout_add(max(16, 1000 // self.au_speed, int(spent * 2000)), self.au_tick)
 
     def au_tick(self) -> bool:
@@ -549,7 +550,14 @@ class AutomatonTab:
         yellow = _rgb(colors.get("yellow", "#e0af68"))
         return fg, bg, accent, yellow
 
-    def au_draw(self, _area, cr, width: int, height: int):
+    def au_draw(self, area, cr, width: int, height: int):
+        started = time.monotonic()
+        try:
+            self.au_render(area, cr, width, height)
+        finally:
+            self.au_draw_spent = time.monotonic() - started     # the pacing counts drawing too
+
+    def au_render(self, _area, cr, width: int, height: int):
         cell = self.au_cell
         cols, rows = max(1, width // cell), max(1, height // cell)
         cols, rows = min(cols, MAX_COLS), min(rows, MAX_ROWS)   # a huge window: a bounded grid
@@ -612,17 +620,22 @@ class AutomatonTab:
                     cr.rectangle((i % g.width) * cell + inset, (i // g.width) * cell + inset, cell - 2 * inset,
                                  cell - 2 * inset)
                 cr.fill()
-        for state in range(1 if not self.au_by_age else 2, states):
+        # One pass over the grid, the cells grouped by state, then one fill per state (a rule with many
+        # states costs no more than one with two).
+        first = 1 if not self.au_by_age else 2
+        by_state: dict = {}
+        for i, c in enumerate(g.cells):
+            if c >= first:
+                by_state.setdefault(c, []).append(i)
+        for state in sorted(by_state):
             if state == 1:
                 cr.set_source_rgb(*accent)
             else:                                 # dying states fade from yellow to the background
                 t = (state - 1) / (states - 1) * .8
                 cr.set_source_rgb(*(a + (b - a) * t for a, b in zip(yellow, bg)))
-            for y in range(g.height):
-                base = y * g.width
-                for x in range(g.width):
-                    if g.cells[base + x] == state:
-                        cr.rectangle(x * cell + inset, y * cell + inset, cell - 2 * inset, cell - 2 * inset)
+            for i in by_state[state]:
+                cr.rectangle((i % g.width) * cell + inset, (i // g.width) * cell + inset, cell - 2 * inset,
+                             cell - 2 * inset)
             cr.fill()
         cr.restore()
         cr.set_source_rgba(*fg, 0.12)

@@ -19,9 +19,24 @@ USER_DIRS = (".local/bin", ".local/share/mise/shims", ".npm-global/bin", ".bun/b
 SYSTEM_DIRS = ("/home/linuxbrew/.linuxbrew/bin",)
 
 
+def _own_links(path: Path) -> bool:
+    """Every link on the way to the program (the program itself included) belongs to this user or
+    root: a link someone else owns could be pointed elsewhere after the check."""
+    for part in [path, *path.parents]:
+        try:
+            info = os.lstat(part)
+        except OSError:
+            return False
+        if stat.S_ISLNK(info.st_mode) and info.st_uid not in (os.getuid(), 0):
+            return False
+    return True
+
+
 def _trusted_dirs(path: Path) -> bool:
     """Every folder from / down to the program (as named and where a link leads) belongs to this user
     or root and only its owner may change it, so no other account can swap the program in between."""
+    if not _own_links(path):
+        return False
     for target in {path.parent, Path(os.path.realpath(path)).parent}:
         for folder in [target, *target.parents]:
             try:
