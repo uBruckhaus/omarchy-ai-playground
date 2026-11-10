@@ -101,7 +101,7 @@ is stopped again (unless another program uses it).
 - **Dictation**: the 🎤 beside a question field starts the desktop's own dictation (Omarchy:
   `omarchy-dictation`, the backend set in Setup › Defaults › Dictation, e.g. Superwhisper); that program
   writes what you say at the cursor. AI Playground records nothing itself; whether the words are
-  recognised on this PC or by a cloud service is the backend's setting. No backend set up: no 🎤.
+  recognised on this PC or by a cloud service is the backend's setting. No backend set up yet: a click on the 🎤 explains how (Setup › Defaults › Dictation) and can open that menu; away from Omarchy there is no 🎤.
 - **Screenshots** (F12) are saved only when you press it, in `~/Pictures/AI Playground/` as new files
   readable only by you (a note you type goes next to it); the window draws itself, no screenshot
   program is started and nothing is sent anywhere.

@@ -2491,5 +2491,9 @@
  "The window drew nothing.": "Het venster tekende niets.",
  "This pattern is made for Conway's Life. Under the rule of “{0}” it may grow, fall apart or stand still instead; choose Conway's Life above to see it as described.": "Dit patroon is gemaakt voor Conway's Life. Onder de regel van ‘{0}’ kan het in plaats daarvan groeien, uiteenvallen of stilstaan; kies bovenaan Conway's Life om het te zien zoals beschreven.",
  "All links ({0})": "Alle links ({0})",
- "Speak instead of typing: {0} writes what you say at the cursor. Click again to stop.": "Spreken in plaats van typen: {0} schrijft wat je zegt op de plek van de cursor. Klik nog eens om te stoppen."
+ "Speak instead of typing: {0} writes what you say at the cursor. Click again to stop.": "Spreken in plaats van typen: {0} schrijft wat je zegt op de plek van de cursor. Klik nog eens om te stoppen.",
+ "Set up dictation": "Dicteren instellen",
+ "To speak instead of typing, choose a dictation program first: in Omarchy's menu under Setup › Defaults › Dictation, pick Superwhisper or Voxtype; Omarchy installs and sets it up. Then click the microphone again.": "Om te spreken in plaats van te typen, kies je eerst een dicteerprogramma: in het Omarchy-menu onder Setup › Defaults › Dictation kies je Superwhisper of Voxtype; Omarchy installeert en stelt het in. Klik daarna nog eens op de microfoon.",
+ "Open dictation setup": "Dicteerinstellingen openen",
+ "Speak instead of typing: no dictation program is set up yet. Click for how to set one up.": "Spreken in plaats van typen: er is nog geen dicteerprogramma ingesteld. Klik om te zien hoe je er een instelt."
 }

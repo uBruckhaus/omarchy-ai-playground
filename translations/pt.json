@@ -2491,5 +2491,9 @@
  "The window drew nothing.": "A janela não desenhou nada.",
  "This pattern is made for Conway's Life. Under the rule of “{0}” it may grow, fall apart or stand still instead; choose Conway's Life above to see it as described.": "Este padrão foi feito para o Jogo da Vida de Conway. Com a regra de «{0}» pode crescer, desfazer-se ou ficar parado; escolhe Conway's Life em cima para o ver como descrito.",
  "All links ({0})": "Todas as ligações ({0})",
- "Speak instead of typing: {0} writes what you say at the cursor. Click again to stop.": "Falar em vez de escrever: {0} escreve o que dizes onde está o cursor. Clica outra vez para parar."
+ "Speak instead of typing: {0} writes what you say at the cursor. Click again to stop.": "Falar em vez de escrever: {0} escreve o que dizes onde está o cursor. Clica outra vez para parar.",
+ "Set up dictation": "Configurar o ditado",
+ "To speak instead of typing, choose a dictation program first: in Omarchy's menu under Setup › Defaults › Dictation, pick Superwhisper or Voxtype; Omarchy installs and sets it up. Then click the microphone again.": "Para falar em vez de escrever, escolhe primeiro um programa de ditado: no menu do Omarchy, em Setup › Defaults › Dictation, escolhe Superwhisper ou Voxtype; o Omarchy instala-o e configura-o. Depois clica outra vez no microfone.",
+ "Open dictation setup": "Abrir a configuração do ditado",
+ "Speak instead of typing: no dictation program is set up yet. Click for how to set one up.": "Falar em vez de escrever: ainda não há nenhum programa de ditado configurado. Clica para ver como configurar um."
 }
