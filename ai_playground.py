@@ -53,6 +53,7 @@ from tabs import DuelTab, LocalTab, SpeedTab, VisionTab  # noqa: E402
 from analyze_tab import AnalyzeTab  # noqa: E402
 from automaton_tab import AutomatonTab  # noqa: E402
 from text_guard import TextGuard  # noqa: E402
+from screenshot import ScreenshotKey  # noqa: E402
 from generate_tab import GenerateTab  # noqa: E402
 from theme_css import ThemeCss  # noqa: E402
 
@@ -84,7 +85,7 @@ def parse_args(argv: list) -> dict:
     return wanted
 
 
-class Playground(Adw.Application, TextGuard, Host, ThemeCss, AnalyzeTab, ChessPage, ChessImport, AutomatonTab, SpeedTab, DuelTab, VisionTab, GenerateTab, LocalTab):
+class Playground(Adw.Application, TextGuard, ScreenshotKey, Host, ThemeCss, AnalyzeTab, ChessPage, ChessImport, AutomatonTab, SpeedTab, DuelTab, VisionTab, GenerateTab, LocalTab):
     def __init__(self):
         super().__init__(application_id=desktop.app_id(), flags=Gio.ApplicationFlags.HANDLES_COMMAND_LINE)
         self.window = None
@@ -295,6 +296,11 @@ class Playground(Adw.Application, TextGuard, Host, ThemeCss, AnalyzeTab, ChessPa
 
     def on_key(self, _controller, keyval, _keycode, state) -> bool:
         ctrl = bool(state & Gdk.ModifierType.CONTROL_MASK)
+        mods = Gdk.ModifierType.CONTROL_MASK | Gdk.ModifierType.SHIFT_MASK | Gdk.ModifierType.ALT_MASK \
+            | Gdk.ModifierType.SUPER_MASK
+        if keyval == Gdk.KEY_F12 and not state & mods and self.screenshot_on():
+            self.take_screenshot()                     # a picture of the window, then a note to it
+            return True
         if ctrl and Gdk.KEY_1 <= keyval <= Gdk.KEY_1 + len(TABS) - 1:
             self.show_page(TABS[keyval - Gdk.KEY_1][0])
             return True
@@ -441,6 +447,10 @@ class Playground(Adw.Application, TextGuard, Host, ThemeCss, AnalyzeTab, ChessPa
                            [_("Omarchy theme"), _("GNOME (Adwaita)")], ai_core.LOOKS.index(ai_core.saved_look()),
                            lambda i: (self.save_setting(look=ai_core.LOOKS[i]), self.theme.reload(),
                                       self.apply_theme_css()))
+        self.switch_row(group, _("F12 saves a screenshot"),
+                        _("A picture of this window goes to ~/Pictures/AI Playground; then you can add a note "
+                          "about what is wrong, saved next to it."),
+                        self.screenshot_on(), lambda on: self.save_setting(screenshot_key=on))
         # How it works: cards that fold, open until folded.
         alone = self.group_card(body, "explain-one-agent", _("One agent or none"), default_open=True)
         for text in (

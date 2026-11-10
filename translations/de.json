@@ -2480,5 +2480,13 @@
  "Apps, shortcuts and updates, with AI package advice": "Apps, Tastenkürzel und Updates, mit KI-Paketberatung",
  "Slightly rounded ({0} px)": "Leicht abgerundet ({0} px)",
  "Rounded ({0} px)": "Abgerundet ({0} px)",
- "Corners of the window, its cards and every control (buttons, choice boxes, fields). “Like windows” follows Hyprland's window rounding.": "Ecken des Fensters, seiner Karten und aller Bedienelemente (Knöpfe, Auswahlfelder, Eingabefelder). „Wie Fenster“ folgt der Fensterrundung von Hyprland."
+ "Corners of the window, its cards and every control (buttons, choice boxes, fields). “Like windows” follows Hyprland's window rounding.": "Ecken des Fensters, seiner Karten und aller Bedienelemente (Knöpfe, Auswahlfelder, Eingabefelder). „Wie Fenster“ folgt der Fensterrundung von Hyprland.",
+ "F12 saves a screenshot": "F12 speichert ein Bildschirmfoto",
+ "A picture of this window goes to ~/Pictures/AI Playground; then you can add a note about what is wrong, saved next to it.": "Ein Bild dieses Fensters kommt nach ~/Pictures/AI Playground; danach kannst du eine Notiz dazu schreiben, was nicht stimmt, die daneben gespeichert wird.",
+ "Screenshot saved": "Bildschirmfoto gespeichert",
+ "Saved as {0}": "Gespeichert als {0}",
+ "What is wrong? (optional)": "Was stimmt nicht? (optional)",
+ "The screenshot could not be saved: {0}": "Das Bildschirmfoto konnte nicht gespeichert werden: {0}",
+ "The note could not be saved: {0}": "Die Notiz konnte nicht gespeichert werden: {0}",
+ "The window drew nothing.": "Das Fenster hat nichts gezeichnet."
 }

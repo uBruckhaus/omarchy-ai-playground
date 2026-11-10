@@ -182,6 +182,13 @@ class Host:
         box.append(group)
         return group
 
+    def switch_row(self, group, title: str, hint: str, active: bool, on_change) -> Adw.SwitchRow:
+        row = Adw.SwitchRow(title=title, subtitle=hint, active=active, use_markup=False)
+        row.set_subtitle_lines(0)
+        row.connect("notify::active", lambda r, *_: on_change(r.get_active()))
+        group.add(row)
+        return row
+
     def combo_row(self, group, title: str, hint: str, labels: list, selected: int, on_change) -> Adw.ComboRow:
         row = Adw.ComboRow(title=title, subtitle=hint, model=Gtk.StringList.new(labels), use_markup=False)
         row.set_subtitle_lines(0)

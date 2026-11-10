@@ -66,7 +66,8 @@ the feature named: `yt-dlp`, `ffmpeg` and `ffprobe` (reading a chess game from a
   with a second model. When two local models would answer at once and might not fit in the graphics
   card's memory together, you are asked first.
 
-Ctrl+1 … Ctrl+7 switch tabs; Ctrl+, opens the settings (language, text size in the choice boxes,
+Ctrl+1 … Ctrl+7 switch tabs; F12 saves a picture of the window to `~/Pictures/AI Playground/`
+and asks for an optional note about what is wrong (a `.txt` next to it; off in Settings); Ctrl+, opens the settings (language, text size in the choice boxes,
 whether several local models may run at once). AI Playground speaks English, German, French,
 Spanish, Italian, Portuguese, Dutch and Polish.
 
@@ -97,6 +98,9 @@ is stopped again (unless another program uses it).
 - AI Playground never asks for root or administrator rights and never reads credential files.
 - **Settings and saved games** are kept in `~/.config/omarchy/ai-playground/` (`settings.json`,
   `games.json`), written atomically and readable only by you.
+- **Screenshots** (F12) are saved only when you press it, in `~/Pictures/AI Playground/` as new files
+  readable only by you (a note you type goes next to it); the window draws itself, no screenshot
+  program is started and nothing is sent anywhere.
 - **Local LLMs**: only servers whose listening port belongs to a process of your own account are
   asked (checked in `/proc/net/tcp` before any request); every reply is read with a size limit and
   one overall deadline, and model names are shown as plain text.
@@ -167,6 +171,7 @@ rm -rf ~/.config/omarchy/ai-playground ~/.local/share/ai-playground
 | `analyze_tab.py`, `analyze.py`, `online_models.py` | Analyze: the tab; its tests and the facts read from the agents' settings |
 | `frame_check.py`, `local_hold.py` | Setting a local model up for pictures; keeping a local LLM up during a job |
 | `tabs.py`, `agent_run.py`, `gpu_check.py` | Speed and cost, Head to head, Vision, Local LLMs; asking an agent once; GPU memory check |
+| `screenshot.py` | F12: a picture of the window and an optional note, in `~/Pictures/AI Playground/` |
 | `generate_tab.py`, `picture_gen.py` | Generate: the tab; setting up stable-diffusion.cpp and the model, making a picture |
 | `local_llm.py`, `loopback.py`, `netfetch.py` | Local LLM servers of your own account; bounded local HTTP |
 | `adapters/` | How each agent is asked (data, shared with AI Agents Map) |

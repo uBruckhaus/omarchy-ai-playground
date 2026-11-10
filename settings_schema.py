@@ -75,6 +75,7 @@ SCHEMA: dict[str, Setting] = {
     "automaton_cell": Setting(10, lambda v: isinstance(v, int) and not isinstance(v, bool) and 4 <= v <= 24,
                               "AI Playground › Automaton › Cell size in pixels"),
     # AI Playground (its own settings file; the same schema)
+    "screenshot_key": Setting(True, _bool, "AI Playground › Settings › F12 saves a screenshot (with a note)"),
     "playground_tab": Setting("chess", _text, "AI Playground: the tab open when it was last closed"),
     "playground_agents": Setting([], _texts, "AI Playground › Speed and cost: the agents ticked"),
     "duel_scores": Setting({}, _mapping, "AI Playground › Head to head: {\"a|b\": [a wins, ties, b wins]}"),

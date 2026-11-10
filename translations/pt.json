@@ -2480,5 +2480,13 @@
  "Apps, shortcuts and updates, with AI package advice": "Apps, atalhos e atualizações, com conselhos de IA",
  "Slightly rounded ({0} px)": "Levemente arredondados ({0} px)",
  "Rounded ({0} px)": "Arredondados ({0} px)",
- "Corners of the window, its cards and every control (buttons, choice boxes, fields). “Like windows” follows Hyprland's window rounding.": "Cantos da janela, dos seus cartões e de todos os controlos (botões, caixas de escolha, campos). «Como as janelas» segue o arredondamento das janelas do Hyprland."
+ "Corners of the window, its cards and every control (buttons, choice boxes, fields). “Like windows” follows Hyprland's window rounding.": "Cantos da janela, dos seus cartões e de todos os controlos (botões, caixas de escolha, campos). «Como as janelas» segue o arredondamento das janelas do Hyprland.",
+ "F12 saves a screenshot": "F12 guarda uma captura de ecrã",
+ "A picture of this window goes to ~/Pictures/AI Playground; then you can add a note about what is wrong, saved next to it.": "Uma imagem desta janela vai para ~/Pictures/AI Playground; depois podes juntar uma nota sobre o que está mal, guardada ao lado.",
+ "Screenshot saved": "Captura guardada",
+ "Saved as {0}": "Guardada como {0}",
+ "What is wrong? (optional)": "O que está mal? (opcional)",
+ "The screenshot could not be saved: {0}": "Não foi possível guardar a captura: {0}",
+ "The note could not be saved: {0}": "Não foi possível guardar a nota: {0}",
+ "The window drew nothing.": "A janela não desenhou nada."
 }

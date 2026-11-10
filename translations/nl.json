@@ -2480,5 +2480,13 @@
  "Apps, shortcuts and updates, with AI package advice": "Apps, sneltoetsen en updates, met AI-pakketadvies",
  "Slightly rounded ({0} px)": "Licht afgerond ({0} px)",
  "Rounded ({0} px)": "Afgerond ({0} px)",
- "Corners of the window, its cards and every control (buttons, choice boxes, fields). “Like windows” follows Hyprland's window rounding.": "Hoeken van het venster, zijn kaarten en alle bedieningselementen (knoppen, keuzelijsten, velden). ‘Zoals vensters’ volgt de vensterafronding van Hyprland."
+ "Corners of the window, its cards and every control (buttons, choice boxes, fields). “Like windows” follows Hyprland's window rounding.": "Hoeken van het venster, zijn kaarten en alle bedieningselementen (knoppen, keuzelijsten, velden). ‘Zoals vensters’ volgt de vensterafronding van Hyprland.",
+ "F12 saves a screenshot": "F12 bewaart een schermafbeelding",
+ "A picture of this window goes to ~/Pictures/AI Playground; then you can add a note about what is wrong, saved next to it.": "Een afbeelding van dit venster gaat naar ~/Pictures/AI Playground; daarna kun je een notitie toevoegen over wat er mis is, die ernaast wordt bewaard.",
+ "Screenshot saved": "Schermafbeelding bewaard",
+ "Saved as {0}": "Bewaard als {0}",
+ "What is wrong? (optional)": "Wat is er mis? (optioneel)",
+ "The screenshot could not be saved: {0}": "De schermafbeelding kon niet worden bewaard: {0}",
+ "The note could not be saved: {0}": "De notitie kon niet worden bewaard: {0}",
+ "The window drew nothing.": "Het venster tekende niets."
 }
