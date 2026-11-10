@@ -31,11 +31,12 @@ class AgentPathsTest(unittest.TestCase):
         self.assertEqual(argv, [str(self.tool), "exec", "-"])
         self.assertTrue(env["PATH"].startswith(str(self.tool.parent) + os.pathsep))
 
-    def test_on_path_stays_as_it_is(self):
-        with mock.patch("shutil.which", return_value="/usr/bin/codex"):
-            argv, env = agent_paths.resolve(["codex", "exec"], {"PATH": "/usr/bin"}, self.home)
-        self.assertEqual(argv, ["codex", "exec"])
-        self.assertEqual(env["PATH"], "/usr/bin")
+    def test_on_path_is_started_by_its_absolute_path(self):
+        with mock.patch("shutil.which", return_value="/usr/bin/codex") as which:
+            argv, env = agent_paths.resolve(["codex", "exec"], {"PATH": "relative:/usr/bin"}, self.home)
+        self.assertEqual(argv, ["/usr/bin/codex", "exec"])         # no second lookup at the start
+        self.assertEqual(env["PATH"], "relative:/usr/bin")
+        self.assertEqual(which.call_args.kwargs["path"], "/usr/bin")  # relative entries are not searched
 
     def test_not_executable_or_names_with_a_slash_are_not_taken(self):
         self.tool.chmod(stat.S_IRUSR | stat.S_IWUSR)

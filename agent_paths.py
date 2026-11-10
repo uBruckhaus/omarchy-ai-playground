@@ -67,11 +67,23 @@ def _usable(path: Path) -> bool:
     return _program(Path(path.parent, written))
 
 
+def absolute_path(path_value: str | None) -> str:
+    """PATH without relative entries (they would mean something else in the private folder an agent
+    is started in). Agents on PATH are trusted as the user's own shell trusts them."""
+    return os.pathsep.join(p for p in (path_value or "").split(os.pathsep) if os.path.isabs(p))
+
+
+def on_path(name: str, path_value: str | None = None) -> str | None:
+    """The program's absolute path as PATH finds it (absolute entries only), or None."""
+    found = shutil.which(name, path=absolute_path(os.environ.get("PATH") if path_value is None else path_value))
+    return os.path.abspath(found) if found else None
+
+
 def find(name: str, home: Path | None = None) -> str | None:
     """The program's path: as PATH finds it, else from the usual install folders; None when not there."""
     if not name or "/" in name:
         return None
-    found = shutil.which(name)
+    found = on_path(name)
     if found:
         return found
     home = Path.home() if home is None else home
@@ -83,11 +95,15 @@ def find(name: str, home: Path | None = None) -> str | None:
 
 
 def resolve(argv: list, env: dict | None = None, home: Path | None = None) -> tuple:
-    """(argv, env) to start it with. A program PATH finds stays as it is; one found in an install
-    folder is started by its full path, with that folder in front of PATH."""
+    """(argv, env) to start it with: the program always by the absolute path that was checked (PATH's
+    absolute entries first, else an install folder, which then goes in front of PATH), so the start
+    makes no second lookup."""
     env = dict(os.environ if env is None else env)
-    if not argv or "/" in argv[0] or shutil.which(argv[0], path=env.get("PATH")):
+    if not argv or "/" in argv[0]:
         return list(argv), env
+    found = on_path(argv[0], env.get("PATH", ""))
+    if found:
+        return [found] + list(argv[1:]), env
     found = find(argv[0], home)
     if found is None:
         return list(argv), env

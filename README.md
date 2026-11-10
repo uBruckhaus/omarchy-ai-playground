@@ -96,6 +96,11 @@ is stopped again (unless another program uses it).
 ## Privacy and capabilities
 
 - AI Playground never asks for root or administrator rights and never reads credential files.
+- **Starting agents**: an agent is started by the absolute path that was found, never by a second
+  lookup: on your PATH (absolute entries only; programs on PATH are trusted as your shell trusts
+  them), else in the usual install folders (mise, npm, bun, cargo, deno, volta, asdf, Homebrew), where
+  only a regular, executable file of yours or root's counts, as a plain file or through one link
+  straight to it (no `..`), in folders without links that no other account can change.
 - **Settings and saved games** are kept in `~/.config/omarchy/ai-playground/` (`settings.json`,
   `games.json`), written atomically and readable only by you.
 - **Dictation**: the 🎤 beside a question field works like Omarchy's dictation key: it puts the
