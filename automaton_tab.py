@@ -381,30 +381,20 @@ class AutomatonTab:
         dialog.present(self.window)
 
     def au_links(self, links) -> Gtk.Widget:
-        """Read more: the first two links as ordinary links, and every link of this window in one
-        drop-down. Only the fixed https addresses of automaton_info, opened in the browser."""
-        from gi.repository import GLib
-        box = Gtk.Box(orientation=Gtk.Orientation.VERTICAL, spacing=6)
-        for title_text, url in links[:2]:
-            link = Gtk.Label(xalign=0, wrap=True)
-            link.set_markup(f'<a href="{GLib.markup_escape_text(url)}">{GLib.markup_escape_text(title_text)}</a>  ↗')
-            link.set_tooltip_text(url)
-            link.connect("activate-link", lambda _l, uri: (self.au_open_page(uri), True)[1])
-            box.append(link)
-        if len(links) > 2:
-            names = [_("All links ({0})").format(len(links))] + [f"{t}  ↗" for t, _u in links]
-            choice = Gtk.DropDown.new_from_strings(names)
-            choice.set_halign(Gtk.Align.START)
-            choice.add_css_class("am-chess-controls")
+        """Read more: every link of this window in one drop-down (the scenario's first). Only the
+        fixed https addresses of automaton_info, opened in the browser."""
+        names = [_("All links ({0})").format(len(links))] + [f"{t}  ↗" for t, _u in links]
+        choice = Gtk.DropDown.new_from_strings(names)
+        choice.set_halign(Gtk.Align.START)
+        choice.set_tooltip_text("\n".join(url for _t, url in links))
 
-            def picked(drop, *_a):
-                index = drop.get_selected()
-                if index > 0:
-                    self.au_open_page(links[index - 1][1])
-                    drop.set_selected(0)            # the list stays a list, not a remembered choice
-            choice.connect("notify::selected", picked)
-            box.append(choice)
-        return box
+        def picked(drop, *_a):
+            index = drop.get_selected()
+            if index > 0:
+                self.au_open_page(links[index - 1][1])
+                drop.set_selected(0)                # the list stays a list, not a remembered choice
+        choice.connect("notify::selected", picked)
+        return choice
 
     def au_open_page(self, url: str):
         if url.startswith("https://"):
