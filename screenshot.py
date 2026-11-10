@@ -37,6 +37,8 @@ def private_folder(where: Path) -> int:
     if info.st_uid != os.getuid() or info.st_mode & 0o022:
         os.close(fd)
         raise PermissionError(f"{where} is not a private folder of yours")
+    if info.st_mode & 0o077:
+        os.fchmod(fd, 0o700)          # our own folder: nobody else may even list the pictures' names
     return fd
 
 
@@ -64,7 +66,10 @@ def write_new(fd: int, name: str, data: bytes):
     try:
         view = memoryview(data)
         while view:
-            view = view[os.write(out, view):]
+            written = os.write(out, view)
+            if written <= 0:
+                raise OSError("the picture could not be written")
+            view = view[written:]
         os.fsync(out)
     except BaseException:
         os.close(out)

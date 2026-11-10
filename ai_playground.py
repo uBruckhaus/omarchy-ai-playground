@@ -316,7 +316,7 @@ class Playground(Adw.Application, TextGuard, ScreenshotKey, Host, ThemeCss, Anal
         if ctrl and Gdk.KEY_1 <= keyval <= Gdk.KEY_1 + len(TABS) - 1:
             self.show_page(TABS[keyval - Gdk.KEY_1][0])
             return True
-        if ctrl and keyval in (Gdk.KEY_v, Gdk.KEY_V) and self.page_name() == "chess":
+        if ctrl and keyval in (Gdk.KEY_v, Gdk.KEY_V) and self.page_name() == "chess" and not self.editing():
             self.chess_paste()                         # a YouTube link from the clipboard: a video import
             return True
         if ctrl and keyval == Gdk.KEY_comma:

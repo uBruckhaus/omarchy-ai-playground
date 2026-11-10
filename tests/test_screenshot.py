@@ -82,6 +82,23 @@ class ScreenshotFilesTest(unittest.TestCase):
         with self.assertRaises(FileExistsError):      # never over an existing file
             screenshot.save_note(picture, "again")
 
+    def test_own_folder_readable_by_others_is_closed(self):
+        self.where.mkdir(mode=0o755)
+        os.chmod(self.where, 0o755)
+        fd = screenshot.private_folder(self.where)
+        os.close(fd)
+        self.assertEqual(os.stat(self.where).st_mode & 0o777, 0o700)
+
+    def test_write_returning_zero_fails_instead_of_spinning(self):
+        fd = screenshot.private_folder(self.where)
+        try:
+            with mock.patch.object(screenshot.os, "write", return_value=0):
+                with self.assertRaises(OSError):
+                    screenshot.write_new(fd, "ai-playground-z.png", b"data")
+            self.assertFalse((self.where / "ai-playground-z.png").exists())
+        finally:
+            os.close(fd)
+
 
 if __name__ == "__main__":
     unittest.main()
