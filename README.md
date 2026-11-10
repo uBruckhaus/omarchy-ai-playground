@@ -44,6 +44,10 @@ the feature named: `yt-dlp`, `ffmpeg` and `ffprobe` (reading a chess game from a
   **Read a game from a video**: drop a video file or a YouTube link on the tab (or paste a link
   with Ctrl+V). The fast way reads the moves from the video's description and captions; the slow way
   shows frames to an agent that can see. The moves are checked for legality before they are kept.
+- **Automaton**: a cellular automaton to draw on: Life-like rules in B/S notation (Conway's Life,
+  HighLife, Seeds, Day & Night, Brian's Brain …, or your own), patterns such as the glider and the
+  Gosper glider gun, random fill, Play/Step (Space, →), speed, wrapping edges, and cell size with
+  Ctrl + wheel. No agent is asked.
 - **Speed and cost**: one question to several agents (and local models); their answers side by side
   with time, tokens and cost where the agent reports them.
 - **Head to head**: one question to two agents or local models. You pick the better answer; in
@@ -62,7 +66,7 @@ the feature named: `yt-dlp`, `ffmpeg` and `ffprobe` (reading a chess game from a
   with a second model. When two local models would answer at once and might not fit in the graphics
   card's memory together, you are asked first.
 
-Ctrl+1 … Ctrl+7 switch tabs; Ctrl+, opens the settings (language, text size in the choice boxes,
+Ctrl+1 … Ctrl+8 switch tabs; Ctrl+, opens the settings (language, text size in the choice boxes,
 whether several local models may run at once). AI Playground speaks English, German, French,
 Spanish, Italian, Portuguese, Dutch and Polish.
 

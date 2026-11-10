@@ -51,11 +51,12 @@ from i18n import _, N_  # noqa: E402
 from palette import ThemePalette  # noqa: E402
 from tabs import DuelTab, LocalTab, SpeedTab, VisionTab  # noqa: E402
 from analyze_tab import AnalyzeTab  # noqa: E402
+from automaton_tab import AutomatonTab  # noqa: E402
 from text_guard import TextGuard  # noqa: E402
 from generate_tab import GenerateTab  # noqa: E402
 from theme_css import ThemeCss  # noqa: E402
 
-TABS = (("analyze", N_("Analyze")), ("chess", N_("Chess")), ("speed", N_("Speed and cost")), ("duel", N_("Head to head")),
+TABS = (("analyze", N_("Analyze")), ("chess", N_("Chess")), ("automaton", N_("Automaton")), ("speed", N_("Speed and cost")), ("duel", N_("Head to head")),
         ("vision", N_("Vision")), ("generate", N_("Generate")), ("local", N_("Local LLMs")))
 ICON = "\U000F0297"                    # Nerd Font gamepad: the header and the bar icon
 OWN_ID = "ubruckhaus.ai-playground"
@@ -81,7 +82,7 @@ def parse_args(argv: list) -> dict:
     return wanted
 
 
-class Playground(Adw.Application, TextGuard, Host, ThemeCss, AnalyzeTab, ChessPage, ChessImport, SpeedTab, DuelTab, VisionTab, GenerateTab, LocalTab):
+class Playground(Adw.Application, TextGuard, Host, ThemeCss, AnalyzeTab, ChessPage, ChessImport, AutomatonTab, SpeedTab, DuelTab, VisionTab, GenerateTab, LocalTab):
     def __init__(self):
         super().__init__(application_id=desktop.app_id(), flags=Gio.ApplicationFlags.HANDLES_COMMAND_LINE)
         self.window = None
@@ -171,6 +172,7 @@ class Playground(Adw.Application, TextGuard, Host, ThemeCss, AnalyzeTab, ChessPa
                                vexpand=True)
         self.stack.add_named(self.build_analyze_tab(), "analyze")
         self.stack.add_named(self.build_chess_tab(), "chess")
+        self.stack.add_named(self.build_automaton_tab(), "automaton")
         self.stack.add_named(self.build_speed_tab(), "speed")
         self.stack.add_named(self.build_duel_tab(), "duel")
         self.stack.add_named(self.build_vision_tab(), "vision")
