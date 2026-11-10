@@ -5,11 +5,12 @@ their translations are shared."""
 from __future__ import annotations
 
 
-from gi.repository import Gdk, GLib, Gtk
+from gi.repository import Adw, Gdk, GLib, Gtk
 
 import math
 
 import ai_core
+import corners
 from automaton import MIXER_NAME, NAMED_RULES, PATTERNS, Automaton, Rule, find_pattern, is_materials_rule, rule_name
 from automaton_info import MATERIALS_NOTE, PATTERN_INFO, RULE_INFO
 from i18n import _
@@ -53,13 +54,12 @@ def _rgb(hex_color: str, fallback=(0.5, 0.5, 0.5)):
 
 class AutomatonTab:
     @staticmethod
-    def au_flow_row(spacing: int = 12, **props) -> Gtk.FlowBox:
+    def au_flow_row(spacing: int = 12, **props) -> Adw.WrapBox:
         """A row of control groups that wraps onto the next line in a narrow window (the window can
-        then be narrower than all the controls side by side, and the header stays on screen)."""
-        row = Gtk.FlowBox(selection_mode=Gtk.SelectionMode.NONE, homogeneous=False, column_spacing=spacing,
-                          row_spacing=6, min_children_per_line=1, max_children_per_line=24, **props)
+        then be narrower than all the controls side by side, and the header stays on screen); each
+        line packs its groups at their own width."""
+        row = Adw.WrapBox(child_spacing=spacing, line_spacing=6, **props)
         row.add_css_class("am-chess-controls")
-        row.add_css_class("am-flow")
         return row
 
     @staticmethod
@@ -73,7 +73,7 @@ class AutomatonTab:
         return group
 
     def build_automaton_tab(self) -> Gtk.Widget:
-        box = Gtk.Box(orientation=Gtk.Orientation.VERTICAL, spacing=ai_core.GAP, margin_end=14)
+        box = Gtk.Box(orientation=Gtk.Orientation.VERTICAL, spacing=ai_core.GAP)
         self.tab_intro(box, _("Automaton"), _(INTRO))
         self.au_speed = int(ai_core.setting("automaton_speed"))
         self.au_cell = int(ai_core.setting("automaton_cell"))
@@ -165,7 +165,7 @@ class AutomatonTab:
             item = Gtk.Box(spacing=6)
             swatch = Gtk.DrawingArea(content_width=11, content_height=11, valign=Gtk.Align.CENTER)
             swatch.set_draw_func(lambda _a, cr, w, h, c=color: (cr.set_source_rgba(*_rgb(c), .35 if c == DIED else 1),
-                                                                cr.rectangle(0, 0, w, h), cr.fill()))
+                                                                corners.rounded_path(cr, 0, 0, w, h, min(getattr(self, 'ui_radius', 0), 3)), cr.fill()))
             item.append(swatch)
             label = Gtk.Label(label=_(text))
             label.add_css_class("am-hint")
@@ -176,7 +176,8 @@ class AutomatonTab:
         for color, text in ((RESIN, "Resin (component A)"), (HARDENER, "Hardener (component B)")):
             item = Gtk.Box(spacing=6)
             swatch = Gtk.DrawingArea(content_width=11, content_height=11, valign=Gtk.Align.CENTER)
-            swatch.set_draw_func(lambda _a, cr, w, h, c=color: (cr.set_source_rgb(*_rgb(c)), cr.rectangle(0, 0, w, h),
+            swatch.set_draw_func(lambda _a, cr, w, h, c=color: (cr.set_source_rgb(*_rgb(c)), corners.rounded_path(
+                cr, 0, 0, w, h, min(getattr(self, 'ui_radius', 0), 3)),
                                                                 cr.fill()))
             item.append(swatch)
             label = Gtk.Label(label=_(text))
@@ -493,6 +494,10 @@ class AutomatonTab:
             GLib.idle_add(lambda: (self.au_refresh(draw=False), False)[1])
         fg, bg, accent, yellow = self.au_colors()
         w, h = g.width * cell, g.height * cell
+        corner = min(getattr(self, "ui_radius", 0), 12)       # Settings › Corners, as the cards
+        cr.save()
+        corners.rounded_path(cr, 0, 0, w, h, corner)
+        cr.clip()
         cr.set_source_rgba(*fg, 0.04)
         cr.rectangle(0, 0, w, h)
         cr.fill()
@@ -549,8 +554,9 @@ class AutomatonTab:
                     if g.cells[base + x] == state:
                         cr.rectangle(x * cell + inset, y * cell + inset, cell - 2 * inset, cell - 2 * inset)
             cr.fill()
+        cr.restore()
         cr.set_source_rgba(*fg, 0.12)
-        cr.rectangle(.5, .5, w - 1, h - 1)
+        corners.rounded_path(cr, .5, .5, w - 1, h - 1, corner)
         cr.stroke()
 
     def au_draw_spark(self, _area, cr, width: int, height: int):

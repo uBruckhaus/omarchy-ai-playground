@@ -55,7 +55,7 @@ SCHEMA: dict[str, Setting] = {
     "look": Setting("omarchy", _one_of(*LOOKS), "Settings › Look on Omarchy: its theme or GNOME's Adwaita"),
     "choice_text": Setting("bright", _one_of("bright", "dim"),
                            "Settings › Text in choice boxes: bright (white on dark themes) or dimmed"),
-    "corners": Setting("windows", _text, "Settings › Corners: \"windows\", \"rounded\" or \"square\" (corners.choice)"),
+    "corners": Setting("windows", _text, "Settings › Corners: \"windows\", \"slight\", \"rounded\" or \"square\" (corners.choice)"),
     # The window
     "window_size": Setting(None, _size, "the window's size when it was last closed: [width, height]"),
     "last_view": Setting("main", _text, "the view open when the window was last closed"),

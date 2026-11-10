@@ -424,9 +424,9 @@ class VisionTab(AgentChecks):
         self.vision_clear_button.set_sensitive(False)
         row.append(self.vision_clear_button)
         box.append(row)
-        self.vision_previews = Gtk.Box(spacing=6)
+        self.vision_previews = Gtk.Box(spacing=6, visible=False)     # no empty gap until a picture comes
         box.append(self.vision_previews)
-        self.vision_prompt = self.prompt_view(VISION_PROMPT, 60)
+        self.vision_prompt = self.prompt_view(VISION_PROMPT)
         box.append(self.vision_prompt)
         checks, self.vision_checks = self.agent_checks(self.vision_agents)
         box.append(checks)
@@ -450,6 +450,7 @@ class VisionTab(AgentChecks):
         self.vision_images = []
         while (child := self.vision_previews.get_first_child()) is not None:
             self.vision_previews.remove(child)
+        self.vision_previews.set_visible(False)
         self.vision_clear_button.set_sensitive(False)
 
     def vision_prepare(self, source: str, name: str) -> str:
@@ -496,6 +497,7 @@ class VisionTab(AgentChecks):
         picture.set_size_request(160, 100)
         picture.set_content_fit(Gtk.ContentFit.CONTAIN)
         self.vision_previews.append(picture)
+        self.vision_previews.set_visible(True)
         self.vision_clear_button.set_sensitive(True)
 
     def vision_dialog(self, title: str, mime_types: list, on_file):
@@ -608,9 +610,9 @@ class LocalTab(GpuGuard):
                                               "memory together, you are asked first"))
         row.append(self.local_model_b)
         row.append(self.small_button(_("Look again"), self.local_scan))
-        box.append(row)
-        self.local_prompt = self.prompt_view(LOCAL_PROMPT, 60)
+        self.local_prompt = self.prompt_view(LOCAL_PROMPT)     # the question first, as on the other tabs
         box.append(self.local_prompt)
+        box.append(row)
         self.local_ask_button = self.action_button(_("Ask"), self.local_ask)
         box.append(self.local_ask_button)
         self.local_result = Gtk.Box(orientation=Gtk.Orientation.VERTICAL, spacing=ai_core.GAP)

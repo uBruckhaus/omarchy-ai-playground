@@ -105,12 +105,15 @@ class Host:
 
     @staticmethod
     def tab_intro(box: Gtk.Box, title: str, text: str):
+        """The tab's heading and its explanation, close together (a block of their own)."""
+        intro = Gtk.Box(orientation=Gtk.Orientation.VERTICAL, spacing=ai_core.GAP_TIGHT)
         heading = Gtk.Label(label=title.upper(), xalign=0)
         heading.add_css_class("am-section-title")
-        box.append(heading)
+        intro.append(heading)
         hint = Gtk.Label(label=text, xalign=0, wrap=True)
         hint.add_css_class("am-hint")
-        box.append(hint)
+        intro.append(hint)
+        box.append(intro)
 
     @staticmethod
     def icon_button(icon: str, on_click, tip: str) -> Gtk.Button:
@@ -151,7 +154,7 @@ class Host:
         return drop
 
     @staticmethod
-    def prompt_view(text: str = "", height: int = 90) -> Gtk.TextView:
+    def prompt_view(text: str = "", height: int = 72) -> Gtk.TextView:
         view = Gtk.TextView(wrap_mode=Gtk.WrapMode.WORD_CHAR, top_margin=6, bottom_margin=6, left_margin=8,
                             right_margin=8)
         view.get_buffer().set_text(text)
@@ -175,7 +178,7 @@ class Host:
 
     @staticmethod
     def preference_group(box, title: str) -> Adw.PreferencesGroup:
-        group = Adw.PreferencesGroup(title=title)
+        group = Adw.PreferencesGroup(title=title.upper())     # as the other headings
         box.append(group)
         return group
 
@@ -184,5 +187,18 @@ class Host:
         row.set_subtitle_lines(0)
         row.set_selected(max(0, selected))
         row.connect("notify::selected", lambda r, *_: on_change(r.get_selected()))
+        centre_suffixes(row)
         group.add(row)
         return row
+
+
+def centre_suffixes(widget: Gtk.Widget):
+    """A combo row's chosen value keeps one line's height beside a long explanation (libadwaita
+    stretches it to the row's height)."""
+    child = widget.get_first_child()
+    while child is not None:
+        if child.has_css_class("suffixes"):
+            child.set_valign(Gtk.Align.CENTER)
+        else:
+            centre_suffixes(child)
+        child = child.get_next_sibling()

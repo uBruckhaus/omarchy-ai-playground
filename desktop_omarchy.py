@@ -153,8 +153,8 @@ def corners_note() -> str:
     else:
         origin = _("Your windows use Omarchy's default rounding (square); a theme or "
                    "~/.config/hypr/looknfeel.lua can change it.")
-    return _("Corners of the window, its cards and the map's boxes. “Like windows” follows Hyprland's "
-             "window rounding.") + " " + origin
+    return _("Corners of the window, its cards and every control (buttons, choice boxes, fields). “Like "
+             "windows” follows Hyprland's window rounding.") + " " + origin
 
 
 def stays_in_background() -> bool:

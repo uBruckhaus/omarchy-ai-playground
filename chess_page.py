@@ -21,6 +21,7 @@ gi.require_version("PangoCairo", "1.0")
 from gi.repository import Gdk, GLib, Gtk, Pango, PangoCairo  # noqa: E402
 
 import ai_core  # noqa: E402
+import corners  # noqa: E402
 import chess_agent  # noqa: E402
 import chess_rules as rules  # noqa: E402
 import i18n  # noqa: E402
@@ -74,7 +75,7 @@ class ChessPage:
     # --- building -------------------------------------------------------------------------------
 
     def build_chess_page(self) -> Gtk.Widget:
-        page = Gtk.Box(orientation=Gtk.Orientation.VERTICAL, spacing=ai_core.GAP, vexpand=True)
+        page = Gtk.Box(orientation=Gtk.Orientation.VERTICAL, spacing=8, vexpand=True)
         header = Gtk.Box(spacing=8)
         self.chess_title = Gtk.Label(xalign=0, hexpand=True)
         self.chess_title.add_css_class("am-section-title")
@@ -168,13 +169,13 @@ class ChessPage:
         # The cards above and below are as wide as the board, all three centred.
         column = Gtk.Box(orientation=Gtk.Orientation.VERTICAL, spacing=8)
         column.set_halign(Gtk.Align.CENTER)
-        column.set_size_request(BOARD_MAX, -1)
+        column.set_size_request(BOARD_MIN, -1)
         self.chess_column = column
         self.chess_top_cards = Gtk.Box(spacing=6, homogeneous=True)
         column.append(self.chess_top_cards)
         board = Gtk.DrawingArea()
-        board.set_content_width(BOARD_MAX)
-        board.set_content_height(BOARD_MAX)
+        board.set_content_width(BOARD_MIN)          # chess_fit grows it to what the window allows
+        board.set_content_height(BOARD_MIN)
         board.set_size_request(BOARD_MIN, BOARD_MIN)
         board.set_draw_func(self.chess_draw)
         # Dragging a piece, and a press without moving (a click), with the left button; the right
@@ -245,7 +246,7 @@ class ChessPage:
         self.chess_scroller = self.page_scroller(body)
         page.append(self.chess_scroller)
         # The board as big as the window allows (BOARD_MIN…BOARD_MAX), so the page fits without scrolling.
-        self.chess_side = BOARD_MAX
+        self.chess_side = BOARD_MIN
         board.add_tick_callback(self.chess_fit)
         self.chess_agent = None
         self.chess_rival = None
@@ -744,6 +745,10 @@ class ChessPage:
         check_sq = None
         if rules.in_check(pos, pos.turn) and ("K" if pos.turn == "w" else "k") in pos.board:
             check_sq = pos.board.index("K" if pos.turn == "w" else "k")
+        corner = min(getattr(self, "ui_radius", 0), 12)       # Settings › Corners, as the cards
+        cr.save()
+        corners.rounded_path(cr, x0, y0, cell * 8, cell * 8, corner)
+        cr.clip()
         layout = PangoCairo.create_layout(cr)
         layout.set_font_description(Pango.FontDescription.from_string(f"{PIECE_FONTS} {max(8, int(cell * 0.62))}px"))
         coords = PangoCairo.create_layout(cr)
@@ -794,9 +799,10 @@ class ChessPage:
                         cr.stroke()
                     else:
                         cr.fill()
+        cr.restore()
         cr.set_source_rgba(*fg, 0.35)
         cr.set_line_width(1)
-        cr.rectangle(x0 + 0.5, y0 + 0.5, cell * 8 - 1, cell * 8 - 1)
+        corners.rounded_path(cr, x0 + 0.5, y0 + 0.5, cell * 8 - 1, cell * 8 - 1, corner)
         cr.stroke()
         if self.chess_drag is not None and self.chess_drag.get("moving"):
             self.chess_paint_piece(cr, layout, self.chess_drag["piece"], self.chess_drag["x"], self.chess_drag["y"],

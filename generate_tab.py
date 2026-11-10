@@ -43,7 +43,7 @@ class GenerateTab:
         self.gen_setup.append(self.gen_setup_button)
         box.append(self.gen_setup)
 
-        self.gen_prompt = self.prompt_view(GENERATE_PROMPT, 60)
+        self.gen_prompt = self.prompt_view(GENERATE_PROMPT)
         box.append(self.gen_prompt)
         row = Gtk.Box(spacing=8)
         row.add_css_class("am-chess-controls")
@@ -60,6 +60,7 @@ class GenerateTab:
         # While it works: what it does, how far, Cancel.
         self.gen_busy = Gtk.Box(spacing=8)
         self.gen_progress = Gtk.ProgressBar(hexpand=True, valign=Gtk.Align.CENTER, show_text=True)
+        self.gen_progress.add_css_class("am-progress")
         self.gen_busy.append(self.gen_progress)
         self.gen_busy.append(self.small_button(_("Cancel"), self.gen_cancel))
         self.gen_busy.set_visible(False)

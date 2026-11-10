@@ -8,7 +8,8 @@ import json
 import os
 import re
 
-CHOICES = ("windows", "rounded", "square")
+CHOICES = ("windows", "slight", "rounded", "square")
+SLIGHT = 6        # "Slightly rounded": round controls beside square or tiled windows.
 ROUNDED = 12      # "Rounded": Theme Manager's corners up to now.
 MAX_RADIUS = 24
 MAX_LUA_BYTES = 256 * 1024
@@ -34,6 +35,8 @@ def parse_rounding(text):
 def radius(setting, window_rounding):
     """The corner radius in px for this setting and the windows' rounding."""
     setting = choice(setting)
+    if setting == "slight":
+        return SLIGHT
     if setting == "rounded":
         return ROUNDED
     if setting == "square":
@@ -60,3 +63,19 @@ def lua_rounding(path):
         for match in _ROUNDING.finditer(code):
             found = int(match.group(1))
     return found
+
+
+def rounded_path(cr, x, y, width, height, radius):
+    """A rectangle with corners of `radius` (cairo), for what is drawn rather than styled: the
+    chess board, the automaton grid, colour swatches."""
+    r = max(0.0, min(radius, width / 2, height / 2))
+    if r <= 0:
+        cr.rectangle(x, y, width, height)
+        return
+    from math import pi
+    cr.new_sub_path()
+    cr.arc(x + width - r, y + r, r, -pi / 2, 0)
+    cr.arc(x + width - r, y + height - r, r, 0, pi / 2)
+    cr.arc(x + r, y + height - r, r, pi / 2, pi)
+    cr.arc(x + r, y + r, r, pi, 3 * pi / 2)
+    cr.close_path()

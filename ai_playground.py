@@ -36,7 +36,7 @@ import gi  # noqa: E402
 
 gi.require_version("Gtk", "4.0")
 gi.require_version("Adw", "1")
-from gi.repository import Adw, Gdk, Gio, GLib, Gtk  # noqa: E402
+from gi.repository import Adw, Gdk, Gio, GLib, Gtk, Pango  # noqa: E402
 
 import ai_core  # noqa: E402
 import corners  # noqa: E402
@@ -202,11 +202,9 @@ class Playground(Adw.Application, TextGuard, Host, ThemeCss, AnalyzeTab, ChessPa
         title = Gtk.Label(label=desktop.app_name(), xalign=0)
         title.add_css_class("am-title")
         header.append(title)
-        # The tabs wrap onto a second line in a narrow window, so ⓘ and the gear stay on screen.
-        tabs = Gtk.FlowBox(selection_mode=Gtk.SelectionMode.NONE, homogeneous=False, hexpand=True,
-                           valign=Gtk.Align.CENTER, column_spacing=4, row_spacing=4, margin_start=12,
-                           min_children_per_line=1, max_children_per_line=len(TABS))
-        tabs.add_css_class("am-tabs")
+        # The tabs wrap onto a second line in a narrow window, so the symbols at the right stay on
+        # screen; each line packs its buttons at their own width (Adw.WrapBox, no columns).
+        tabs = Adw.WrapBox(child_spacing=4, line_spacing=4, hexpand=True, valign=Gtk.Align.CENTER, margin_start=12)
         self.tab_buttons = {}
         group = None
         for i, (key, label) in enumerate(TABS):
@@ -219,39 +217,24 @@ class Playground(Adw.Application, TextGuard, Host, ThemeCss, AnalyzeTab, ChessPa
             group = group or button
             button.connect("toggled", lambda b, k=key: b.get_active() and self.show_page(k))
             tabs.append(button)
-            tabs.get_last_child().set_focusable(False)   # the button takes focus, not its FlowBox cell
             self.tab_buttons[key] = button
         header.append(tabs)
-        analyze = Gtk.Button(valign=Gtk.Align.CENTER)
-        mark_a = Gtk.Label(label=ANALYZE_GLYPH)
-        mark_a.add_css_class("am-gear")
-        analyze.set_child(mark_a)
-        analyze.add_css_class("flat")
-        analyze.add_css_class("am-header-btn")
-        analyze.add_css_class("am-gear-btn")
-        analyze.set_tooltip_text(_("Analyze"))
-        analyze.connect("clicked", lambda *_a: self.show_page("analyze"))
-        header.append(analyze)
-        info = Gtk.Button(valign=Gtk.Align.CENTER)
-        mark_i = Gtk.Label(label=more_plugins.INFO_GLYPH)
-        mark_i.add_css_class("am-gear")
-        info.set_child(mark_i)
-        info.add_css_class("flat")
-        info.add_css_class("am-header-btn")
-        info.add_css_class("am-gear-btn")
-        info.set_tooltip_text(_(more_plugins.INFORMATION))
-        info.connect("clicked", lambda *_a: self.show_page("info"))
-        header.append(info)
-        gear = Gtk.Button(valign=Gtk.Align.CENTER)
-        cog = Gtk.Label(label="")
-        cog.add_css_class("am-gear")
-        gear.set_child(cog)
-        gear.add_css_class("flat")
-        gear.add_css_class("am-header-btn")
-        gear.add_css_class("am-gear-btn")
-        gear.set_tooltip_text(_("Settings") + " (Ctrl+,)")
-        gear.connect("clicked", lambda *_a: self.show_page("settings"))
-        header.append(gear)
+        # Analyze, Information, Settings: symbols that open a page with ← Back; lit while it is open.
+        self.page_buttons = {}
+        for page, glyph, tip in (("analyze", ANALYZE_GLYPH, _("Analyze")),
+                                 ("info", more_plugins.INFO_GLYPH, _(more_plugins.INFORMATION)),
+                                 ("settings", "\uf013", _("Settings") + " (Ctrl+,)")):
+            button = Gtk.Button(valign=Gtk.Align.CENTER)
+            mark = Gtk.Label(label=glyph)
+            mark.add_css_class("am-gear")
+            button.set_child(mark)
+            button.add_css_class("flat")
+            button.add_css_class("am-header-btn")
+            button.add_css_class("am-gear-btn")
+            button.set_tooltip_text(tip)
+            button.connect("clicked", lambda *_a, p=page: self.show_page(p))
+            header.append(button)
+            self.page_buttons[page] = button
         return header
 
     def toast(self, text: str):
@@ -286,6 +269,9 @@ class Playground(Adw.Application, TextGuard, Host, ThemeCss, AnalyzeTab, ChessPa
         for key, button in self.tab_buttons.items():
             if button.get_active() != (key == name):
                 button.set_active(key == name)
+        for key, button in getattr(self, "page_buttons", {}).items():
+            if (key == name) != button.has_css_class("am-page-active"):
+                (button.add_css_class if key == name else button.remove_css_class)("am-page-active")
 
     def remember_page(self):
         pass
@@ -401,7 +387,7 @@ class Playground(Adw.Application, TextGuard, Host, ThemeCss, AnalyzeTab, ChessPa
         top.append(glyph)
         texts = Gtk.Box(orientation=Gtk.Orientation.VERTICAL, spacing=4, hexpand=True)
         name = Gtk.Label(label="AI Agents Map", xalign=0)
-        name.add_css_class("am-more-name")
+        name.add_css_class("am-addon-name")
         texts.append(name)
         for text in (_("Your whole AI setup on one map: coding agents with their plan, limits and usage, local "
                        "LLMs and their models, MCP servers and skills."),
@@ -410,8 +396,9 @@ class Playground(Adw.Application, TextGuard, Host, ThemeCss, AnalyzeTab, ChessPa
                        "batteries show limits and free GPU memory."),
                      _("Together: the agents you set up there (signed in, or connected to a local LLM) are the ones "
                        "you can test here.")):
-            line = self.answer_label(text)
-            line.set_selectable(False)
+            line = Gtk.Label(label=text, xalign=0, wrap=True)
+            line.set_wrap_mode(Pango.WrapMode.WORD_CHAR)
+            line.add_css_class("am-detail-value")       # below its name in size, as the cards' texts
             texts.append(line)
         top.append(texts)
         card.append(top)
@@ -438,7 +425,8 @@ class Playground(Adw.Application, TextGuard, Host, ThemeCss, AnalyzeTab, ChessPa
                        codes.index(setting) if setting in codes else 0, lambda i: self.set_language(codes[i]))
         rounding = desktop.window_rounding()
         like = _("Like windows ({0} px)").format(rounding) if rounding is not None else _("Like windows")
-        self.combo_row(group, _("Corners"), desktop.corners_note(), [like, _("Rounded"), _("Square")],
+        self.combo_row(group, _("Corners"), desktop.corners_note(), [like, _("Slightly rounded ({0} px)").format(corners.SLIGHT),
+                        _("Rounded ({0} px)").format(corners.ROUNDED), _("Square")],
                        corners.CHOICES.index(ai_core.saved_corners()),
                        lambda i: (self.save_setting(corners=corners.CHOICES[i]), self.apply_theme_css()))
         self.combo_row(group, _("Text in choice boxes"),

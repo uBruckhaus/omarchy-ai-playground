@@ -17,8 +17,9 @@ from i18n import _
 
 class AnalyzeTab:
     def build_analyze_tab(self) -> Gtk.Widget:
-        box = Gtk.Box(orientation=Gtk.Orientation.VERTICAL, spacing=ai_core.GAP)
-        self.page_head(box, _("Analyze"))              # a header symbol's page, like Settings
+        page = Gtk.Box(orientation=Gtk.Orientation.VERTICAL, spacing=ai_core.GAP)
+        self.page_head(page, _("Analyze"))             # a header symbol's page, like Settings: the head stays,
+        box = Gtk.Box(orientation=Gtk.Orientation.VERTICAL, spacing=ai_core.GAP)   # the rest scrolls
         hint = Gtk.Label(label=_("What an agent can do with one of its models: text, pictures, chess videos, thinking "
                                  "time, chess, how much it keeps in mind. A few short test questions are asked (they may "
                                  "count against your plan); a local model is set up for pictures where it can be."),
@@ -46,7 +47,8 @@ class AnalyzeTab:
             self.an_model.set_model(Gtk.StringList.new([_("No agent is set up here yet")]))
         else:
             self.an_fill_models()
-        return self.page_scroller(box)
+        page.append(self.page_scroller(box))
+        return page
 
     def an_selected_agent(self):
         index = self.an_agent.get_selected()
@@ -101,6 +103,7 @@ class AnalyzeTab:
             found.set_visible(False)
             card.append(found)
             fetch = Gtk.Button(label=_("Download the vision file"), halign=Gtk.Align.START, visible=False)
+            fetch.add_css_class("am-small-btn")
             card.append(fetch)
             self.an_parts[key] = (card, mark, found, fetch)
         self.an_button.set_sensitive(False)

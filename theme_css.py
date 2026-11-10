@@ -111,6 +111,11 @@ class ThemeCss:
             dark_bg = True
         choice_hex = dim_hex if ai_core.setting("choice_text") == "dim" else ("#ffffff" if dark_bg else fg_hex)
         pill = 999 if radius else 0      # chips and switches: round pills, or square with Square corners
+        # One Corners setting for everything, in three sizes: cards, dialogs, pop-ups, the board
+        # (radius); buttons, choice boxes and fields (control); check boxes, tracks, swatches (small).
+        control = min(radius, 8)
+        small = min(radius, 4)
+        self.ui_radius = radius              # the chess board and the automaton grid draw with it
         css = f"""
         window#aiagentsmap-window {{ background: {bg_hex}; }}
         .am-card {{ background: {bg_hex}; color: {fg_hex}; border: none;
@@ -127,22 +132,25 @@ class ThemeCss:
         button.am-view-btn:checked, headerbar button.am-view-btn:checked {{ color: {accent_hex};
             background: alpha({accent_hex}, 0.14); }}
         .am-header-hint {{ font-size: 10px; color: {dim_hex}; }}
-        .am-hint {{ color: {muted_hex}; font-size: 13px; }}
-        .am-card button.am-header-btn {{ padding: 4px; min-width: 0; min-height: 0; margin-right: 4px; }}
-        .am-card button.am-view-btn {{ margin-right: 0; }}
-        flowbox.am-tabs > flowboxchild, flowbox.am-flow > flowboxchild {{ padding: 0; }}
+        .am-hint {{ color: {muted_hex}; font-size: 12px; }}
+        .am-card button.am-header-btn, .am-headerbar button.am-header-btn {{ padding: 4px; min-width: 0; min-height: 0;
+            margin-right: 4px; }}
+        .am-card button.am-view-btn, .am-headerbar button.am-view-btn {{ margin-right: 0; }}
         .am-view-switch {{ margin-right: 4px; }}
-        .am-card button.am-gear-btn {{ border: 1px solid alpha({fg_hex}, 0.35); border-radius: {radius}px;
-            padding: 1px 6px; margin-right: 0; }}
+        .am-card button.am-gear-btn, .am-headerbar button.am-gear-btn {{ border: 1px solid alpha({fg_hex}, 0.35);
+            border-radius: {control}px; padding: 1px 4px; margin-right: 0; min-width: 24px; min-height: 22px; }}
+        button.am-gear-btn.am-page-active {{ color: {accent_hex}; border-color: {accent_hex};
+            background: alpha({accent_hex}, 0.14); }}
         .am-gear {{ font-family: "JetBrainsMono Nerd Font", "Symbols Nerd Font", monospace; font-size: 13px; }}
-        .am-card button.am-back-bordered {{ border: 1px solid alpha({fg_hex}, 0.35); border-radius: {radius}px;
-            padding: 4px 10px; }}
-        .am-section-title {{ font-size: 11px; font-weight: 700; letter-spacing: 1px; }}
+        .am-card button.am-back-bordered {{ border: 1px solid alpha({fg_hex}, 0.35); border-radius: {control}px;
+            padding: 1px 10px; min-height: 22px; }}
+        .am-card button.am-back-bordered label {{ font-size: 12px; }}
+        .am-section-title {{ font-size: 12px; font-weight: 700; letter-spacing: 1px; }}
         .am-tab-legend {{ font-size: 10px; }}
         .am-legend-text {{ font-size: 13px; }}
-        .am-card menubutton.am-gear-btn {{ margin-right: 4px; }}
-        .am-card menubutton.am-gear-btn > button {{ border: 1px solid alpha({fg_hex}, 0.35); border-radius: {radius}px;
-            padding: 1px 6px; min-width: 0; min-height: 0; background: none; box-shadow: none; }}
+        .am-card menubutton.am-gear-btn {{ margin-right: 0; }}
+        .am-card menubutton.am-gear-btn > button {{ border: 1px solid alpha({fg_hex}, 0.35); border-radius: {control}px;
+            padding: 1px 4px; min-width: 24px; min-height: 22px; background: none; box-shadow: none; }}
         .am-card menubutton.am-gear-btn > button:checked {{ color: {accent_hex}; background: alpha({accent_hex}, 0.14); }}
         button.am-legend-help {{ font-size: 13px; padding: 2px 6px; margin-top: 4px; }}
         .am-card .am-tab-working {{ color: {accent_hex}; }}
@@ -157,8 +165,17 @@ class ThemeCss:
         .am-card label.am-line-label {{ font-size: 11px; color: {dim_hex}; }}
         .am-setting-heading {{ font-size: 11px; font-weight: 700; letter-spacing: 1px; color: {fg_hex};
             margin-top: 6px; }}
-        .am-settings {{ padding: 2px 4px 12px 0; }}
-        .am-line dropdown > button {{ min-height: 0; padding: 2px 8px; border: 1px solid alpha({fg_hex}, 0.35); }}
+        .am-settings {{ padding: 2px 0 12px 0; }}
+        .am-group-card .am-setting-heading {{ margin-top: 0; }}
+        /* Settings: the group heading as the other headings, rows as the cards' text (3). */
+        .am-settings preferencesgroup label.heading {{ font-size: 11px; font-weight: 700; letter-spacing: 1px;
+            color: {dim_hex}; }}
+        .am-settings row .title {{ font-size: 13px; font-weight: 600; }}
+        .am-settings row .subtitle {{ font-size: 12px; color: {dim_hex}; }}
+        .am-settings list.boxed-list {{ border-radius: {radius}px; }}
+        .am-dim {{ color: {dim_hex}; }}
+        .am-line dropdown > button {{ min-height: 22px; padding: 1px 8px; border: 1px solid alpha({fg_hex}, 0.35);
+            border-radius: {control}px; }}
         .am-line dropdown label {{ font-size: 11px; }}
         .am-line switch {{ min-height: 16px; min-width: 36px; }}
         .am-line switch slider {{ min-width: 14px; min-height: 14px; margin: 1px; }}
@@ -176,7 +193,7 @@ class ThemeCss:
         .am-check-step {{ font-size: 11px; }}
         .am-check-step.am-state-info {{ color: {dim_hex}; }}
         .am-stat-tile {{ border-radius: {radius}px; padding: 8px 10px; }}
-        .am-command-line {{ background: alpha({fg_hex}, 0.06); border-radius: {min(radius, 6)}px; padding: 2px 4px 2px 10px;
+        .am-command-line {{ background: alpha({fg_hex}, 0.06); border-radius: {control}px; padding: 2px 4px 2px 10px;
             margin-top: 3px; }}
         .am-command {{ font-family: "JetBrainsMono Nerd Font", monospace; font-size: 12px; }}
         button.am-widen-hint, headerbar button.am-widen-hint {{ color: {dim_hex};
@@ -188,7 +205,7 @@ class ThemeCss:
         .am-undo button.suggested-action {{ background: {accent_hex}; color: {bg_hex}; border: none; }}
         .am-help-card {{ background: alpha({fg_hex}, 0.03); border: 1px solid alpha({fg_hex}, 0.10);
             border-radius: {radius}px; padding: 8px 12px; }}
-        .am-help-card.am-group-card {{ padding: 4px 12px; }}   /* group cards: a low header, to save room */
+        .am-help-card.am-group-card {{ padding: 6px 12px; }}   /* group cards: a low header, to save room */
         .am-help-mark {{ font-weight: 700; }}
         .am-addon-card {{ background: alpha({fg_hex}, 0.04); border: 1px solid alpha({fg_hex}, 0.10);
             border-radius: {radius}px; padding: 10px 12px; min-height: 96px; }}
@@ -260,7 +277,7 @@ class ThemeCss:
             border-radius: {radius}px; padding: 8px 10px; margin-bottom: 2px; }}
         .am-choice.am-choice-card:hover {{ background: alpha({fg_hex}, 0.08); }}
         .am-addon-privacy {{ font-size: 10px; color: {dim_hex}; }}
-        .am-addon-chip {{ font-size: 11px; min-height: 0; padding: 2px 12px; border-radius: 999px; }}
+        .am-addon-chip {{ font-size: 11px; min-height: 0; padding: 2px 12px; border-radius: {pill}px; }}
         .am-addon-chip:checked {{ background: {accent_hex}; color: {bg_hex}; }}
         .am-stat-value {{ font-size: 17px; font-weight: 600; }}
         .am-group-heading {{ font-size: 10px; font-weight: 700; letter-spacing: 1px; color: {dim_hex};
@@ -283,10 +300,10 @@ class ThemeCss:
         .am-an-mark.no {{ color: {red_hex}; }}
         .am-an-mark.slow {{ color: {yellow_hex}; }}
         .am-model-name {{ font-weight: 600; }}
-        .am-help-picture {{ border-radius: {min(radius, 8)}px; }}
+        .am-help-picture {{ border-radius: {control}px; }}
         button.am-download-btn {{ padding: 6px 18px; font-weight: 700; }}
         .am-model-title {{ font-size: 17px; font-weight: 700; }}
-        .am-model-card {{ background: alpha({fg_hex}, 0.05); border-radius: {min(radius, 8)}px; padding: 12px 14px; }}
+        .am-model-card {{ background: alpha({fg_hex}, 0.05); border-radius: {radius}px; padding: 12px 14px; }}
         .am-fact-key {{ font-size: 9px; font-weight: 700; letter-spacing: 1px; color: {dim_hex}; }}
         .am-fact-value {{ font-family: monospace; font-weight: 600; }}
         .am-cap {{ font-size: 10px; font-weight: 600; border-radius: {pill}px; padding: 1px 8px;
@@ -368,13 +385,13 @@ class ThemeCss:
         .am-job-waiting .am-job-mark, .am-job-interrupted .am-job-mark, .am-job-stopped .am-job-mark {{ color: {yellow_hex}; }}
         .am-job-failed .am-job-mark {{ color: {red_hex}; }}
         .am-job-done .am-job-mark {{ color: {green_hex}; }}
-        progressbar.am-progress trough {{ min-height: 6px; background: alpha({fg_hex}, 0.10); border-radius: {min(radius, 3)}px; }}
-        progressbar.am-progress progress {{ min-height: 6px; background: {accent_hex}; border-radius: {min(radius, 3)}px; }}
+        progressbar.am-progress trough {{ min-height: 6px; background: alpha({fg_hex}, 0.10); border-radius: {small}px; }}
+        progressbar.am-progress progress {{ min-height: 6px; background: {accent_hex}; border-radius: {small}px; }}
         .am-card button.am-menu-item {{ padding: 3px 8px; font-size: 12px; }}
         popover.am-menu > contents {{ border: 1px solid alpha({fg_hex}, 0.30); border-radius: {radius}px;
             padding: 6px; }}
         popover.am-menu button.am-menu-item {{ padding: 4px 10px; font-size: 12px; font-weight: normal;
-            min-height: 0; border-radius: {min(radius, 6)}px; }}
+            min-height: 0; border-radius: {control}px; }}
         popover.am-menu checkbutton.am-menu-check {{ padding: 2px 6px; min-height: 0; }}
         popover.am-menu checkbutton.am-menu-check label {{ font-size: 12px; }}
         popover.am-menu .am-menu-title {{ padding: 2px 10px 2px 10px; }}
@@ -388,7 +405,7 @@ class ThemeCss:
         /* The chosen value and its arrow framed like the other controls, well apart from a long explanation. */
         row.combo listview.inline {{ min-width: 128px; }}    /* the chosen value stays readable; the explanation wraps */
         row.combo box.suffixes {{ margin-left: 24px; padding: 3px 6px 3px 10px; border: 1px solid alpha({fg_hex}, 0.28);
-            border-radius: {min(radius, 8)}px; }}
+            border-radius: {control}px; }}
         row.combo:hover box.suffixes {{ border-color: alpha({fg_hex}, 0.45); }}
         .am-card list.am-list:not(.boxed-list):not(.am-pick-cards) {{ background: alpha({fg_hex}, 0.03); border-radius: {radius}px; }}
         .am-card list.am-list row:selected {{ background: alpha({accent_hex}, 0.22); }}
@@ -428,10 +445,18 @@ class ThemeCss:
         levelbar.am-limit block.am-hot {{ background: {orange_hex}; }}
         levelbar.am-limit block.am-full {{ background: {red_hex}; }}
         levelbar.am-limit block.empty {{ background: transparent; }}
-        .am-card button.am-small-btn {{ font-size: 11px; min-height: 0; padding: 1px 10px;
-            border: 1px solid alpha({fg_hex}, 0.35); border-radius: {radius}px; }}
+        .am-card button.am-small-btn, .am-headerbar button.am-small-btn {{ font-size: 11px; min-height: 22px;
+            padding: 1px 10px; border: 1px solid alpha({fg_hex}, 0.35); border-radius: {control}px; }}
         .am-card button.am-action-btn {{ font-size: 13px; font-weight: 600; min-height: 34px; min-width: 120px;
-            padding: 4px 22px; border: 1px solid alpha({fg_hex}, 0.35); border-radius: {radius}px; }}
+            padding: 4px 22px; border: 1px solid alpha({fg_hex}, 0.35); border-radius: {control}px; }}
+        /* After .am-action-btn, which would grey its border again (10). */
+        .am-card button.am-action-btn.am-primary {{ border-color: {accent_hex}; }}
+        /* Fields and check boxes: the controls' size, not GTK's larger default (2, 8). */
+        .am-card entry {{ font-size: 12px; min-height: 22px; padding: 1px 8px; border: 1px solid alpha({fg_hex}, 0.35);
+            border-radius: {control}px; background: none; box-shadow: none; outline: none; }}
+        .am-card entry:focus-within {{ border-color: {accent_hex}; }}
+        .am-card checkbutton label {{ font-size: 12px; }}
+        .am-card checkbutton check {{ border-radius: {small}px; }}
         .am-card button.am-action-btn:disabled {{ opacity: 0.45; }}
         .am-card button.am-chip {{ font-size: 11px; min-height: 0; padding: 1px 10px; border-radius: {pill}px;
             border: 1px solid alpha({fg_hex}, 0.25); background: transparent; color: {dim_hex}; }}
@@ -459,18 +484,19 @@ class ThemeCss:
         button.am-chess-card:hover {{ background: alpha({fg_hex}, 0.09); }}
         .am-chess-card.am-chess-picked {{ background: alpha({accent_hex}, 0.16); border: 2px solid {accent_hex}; }}
         .am-chess-card.am-chess-gone {{ opacity: 0.4; }}
-        .am-chess-glyph {{ font-family: "DejaVu Sans", "Noto Sans Symbols 2", sans-serif; font-size: 34px; }}
+        .am-chess-glyph {{ font-family: "DejaVu Sans", "Noto Sans Symbols 2", sans-serif; font-size: 26px; }}
         .am-chess-white {{ color: #f7f5ee; text-shadow: 0 0 1px #1e1e24, 0 0 2px #1e1e24; }}
         .am-chess-black {{ color: #19191e; text-shadow: 0 0 1px #d8d6cc, 0 0 2px #d8d6cc; }}
         .am-chess-count {{ font-size: 11px; color: {dim_hex}; }}
-        .am-chess-glyph.am-chess-taken-glyph {{ font-size: 24px; margin: -3px 0; }}
+        .am-chess-glyph.am-chess-taken-glyph {{ font-size: 20px; margin: -3px 0; }}
         .am-chess-answer {{ background: alpha({accent_hex}, 0.08); border-left: 3px solid {accent_hex};
             border-radius: {radius}px; padding: 8px 10px; }}
         .am-chess-answer-title {{ font-weight: 700; font-size: 12px; }}
         .am-chess-status {{ font-size: 13px; font-weight: 600; }}
         .am-chess-said {{ font-size: 13px; }}
         /* Its dropdowns as the other pages' (settings lines): small, not bold, in the choice text colour. */
-        .am-chess-controls dropdown > button {{ min-height: 0; padding: 2px 8px; border: 1px solid alpha({fg_hex}, 0.35); }}
+        .am-chess-controls dropdown > button {{ min-height: 22px; padding: 1px 8px; border: 1px solid alpha({fg_hex}, 0.35);
+            border-radius: {control}px; }}
         .am-chess-controls dropdown label {{ font-size: 11px; font-weight: normal; color: {choice_hex}; }}
         .am-chess-controls > label {{ font-size: 12px; }}
         /* The Board and pieces menu: preview tiles, the chosen one framed in the accent colour. */
@@ -489,11 +515,29 @@ class ThemeCss:
         button.am-chess-promote {{ font-family: "DejaVu Sans", "Noto Sans Symbols 2", sans-serif; font-size: 28px;
             padding: 2px 8px; }}
         /* AI Playground's question fields. */
-        textview.am-prompt {{ border: 1px solid alpha({fg_hex}, 0.25); border-radius: {radius}px; }}
+        textview.am-prompt {{ border: 1px solid alpha({fg_hex}, 0.25); border-radius: {control}px; font-size: 13px; }}
+        textview.am-prompt > text {{ border-radius: {control}px; background: transparent; }}
         textview.am-prompt:focus-within {{ border-color: {accent_hex}; }}
+        /* Every other control follows the same Corners setting (13): choice boxes and their lists,
+           pop-ups, sliders, the settings list, tooltips and dialogs. */
+        window#aiagentsmap-window dropdown > button, window#aiagentsmap-window menubutton > button,
+        window#aiagentsmap-window spinbutton, window#aiagentsmap-window searchbar entry {{ border-radius: {control}px; }}
+        window#aiagentsmap-window popover > contents {{ border-radius: {radius}px; }}
+        window#aiagentsmap-window popover listview > row, window#aiagentsmap-window popover modelbutton {{
+            border-radius: {small}px; }}
+        window#aiagentsmap-window scale trough, window#aiagentsmap-window scale highlight {{ border-radius: {small}px; }}
+        window#aiagentsmap-window scale slider {{ min-width: 14px; min-height: 14px; margin: -6px;
+            border-radius: {pill}px; }}
+        window#aiagentsmap-window list.boxed-list, window#aiagentsmap-window list.boxed-list > row:first-child,
+        window#aiagentsmap-window list.boxed-list > row:last-child {{ border-radius: {radius}px; }}
+        window#aiagentsmap-window dialog sheet, window#aiagentsmap-window dialog floating-sheet {{
+            border-radius: {radius}px; }}
+        window#aiagentsmap-window dialog .response-area button {{ border-radius: {control}px; }}
+        tooltip, tooltip.background {{ border-radius: {control}px; }}
         """
         import more_plugins                  # the Information page's cards (info_page, AI Playground)
         css += more_plugins.css("am", fg_hex, dim_hex, accent_hex, radius)
+        css += f".am-more-icon {{ border-radius: {small}px; }}\n"      # its own 5 px: the setting's small size
         for view in (getattr(self, "map_view", None), getattr(self, "side_map", None)):
             if view is not None:
                 view.set_palette({"bg": bg_hex, "fg": fg_hex, "dim": dim_hex, "muted": muted_hex,
@@ -505,6 +549,7 @@ class ThemeCss:
         if radius == 0:
             # Square: libadwaita's own controls too (lists, dropdowns, entries, switches, popovers).
             css += "window#aiagentsmap-window *:not(radio):not(.am-tab-dot) { border-radius: 0; }\n"
+            css += "tooltip, tooltip * { border-radius: 0; }\n"      # tooltips are windows of their own
         provider = Gtk.CssProvider()
         provider.load_from_string(css)
         Gtk.StyleContext.add_provider_for_display(display, provider, Gtk.STYLE_PROVIDER_PRIORITY_APPLICATION)
